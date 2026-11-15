@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
 import 'favorites_screen.dart';
+import 'gear_screen.dart';
 import 'profile_screen.dart';
 import 'reminders_screen.dart';
 
@@ -71,15 +72,11 @@ class _RootScreenState extends State<RootScreen> {
       _buildPlaceholder(
         title: 'Halo, ${SettingsService.fullName}! 👋',
         icon: Icons.cloud_outlined,
-        subtitle: 'Selamat datang di Payungin. Pantau Skor Payung hari ini (Sprint 2 - Loddy).',
+        subtitle: 'Selamat datang di Payungin. Pantau Skor Payung hari ini.',
       ),
       const FavoritesScreen(),
       const RemindersScreen(),
-      _buildPlaceholder(
-        title: 'Perlengkapan Hujan',
-        icon: Icons.backpack_outlined,
-        subtitle: 'Tab keranjang perlengkapan (Sprint 4).',
-      ),
+      const GearScreen(),
       ProfileScreen(
         onNameChanged: () {
           setState(() {}); // Segarkan sapaan di Beranda jika nama diedit

@@ -25,13 +25,14 @@ class ReminderAdapter extends TypeAdapter<Reminder> {
       note: fields[5] as String,
       notifOn: fields[6] == null ? false : fields[6] as bool,
       repeatDaily: fields[7] == null ? false : fields[7] as bool,
+      date: fields[8] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Reminder obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.title)
       ..writeByte(1)
@@ -47,7 +48,9 @@ class ReminderAdapter extends TypeAdapter<Reminder> {
       ..writeByte(6)
       ..write(obj.notifOn)
       ..writeByte(7)
-      ..write(obj.repeatDaily);
+      ..write(obj.repeatDaily)
+      ..writeByte(8)
+      ..write(obj.date);
   }
 
   @override

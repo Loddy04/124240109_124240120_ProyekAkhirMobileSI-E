@@ -1,7 +1,15 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/favorite_city.dart';
+import '../models/gear_item.dart';
+import '../models/reminder.dart';
 import '../models/user.dart';
+import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/input_field.dart';
 import 'register_screen.dart';
@@ -39,6 +47,13 @@ class _LoginScreenState extends State<LoginScreen> {
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  // Helper: hash password dengan SHA-256 untuk dibandingkan dengan yang tersimpan
+  String _hashPassword(String password) {
+    final bytes = utf8.encode(password);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
   }
 
   // Cek sesi pengguna di SharedPreferences (F1)
@@ -91,15 +106,29 @@ class _LoginScreenState extends State<LoginScreen> {
     final regUser = prefs.getString('registered_username');
     final regPass = prefs.getString('registered_password');
     final regFullName = prefs.getString('registered_fullName');
+    // Bandingkan password dengan hash SHA-256 yang tersimpan (bukan plain-text)
     final isRegistered = regUser != null &&
         regPass != null &&
         regUser == username.toLowerCase() &&
-        regPass == password;
+        regPass == _hashPassword(password);
 
     if (isDemo || isRegistered) {
       setState(() {
         _isLoginFailed = false;
       });
+
+      // Isolasi data: jika akun yang login berbeda dari akun aktif sebelumnya,
+      // bersihkan data histori agar tidak tertukar/terbawa ke akun baru
+      final previousUser = prefs.getString('last_active_user');
+      if (previousUser != null && previousUser != username.toLowerCase()) {
+        await NotificationService().cancelAll();
+        await Hive.box<Reminder>('reminders').clear();
+        await Hive.box<FavoriteCity>('favorites').clear();
+        await Hive.box<GearItem>('gear').clear();
+        await Hive.box<String>('weather_cache').clear();
+        await prefs.remove('profileImagePath');
+      }
+      await prefs.setString('last_active_user', username.toLowerCase());
 
       // Simpan status sesi aktif
       await prefs.setBool('loginData', true);
@@ -108,7 +137,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // Simpan atau pertahankan nama lengkap
       if (isRegistered && regFullName != null && regFullName.isNotEmpty) {
         await prefs.setString('fullName', regFullName);
-      } else if (prefs.getString('fullName') == null) {
+      } else if (isDemo) {
         await prefs.setString('fullName', 'Administrator Payungin');
       }
 

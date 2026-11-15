@@ -1,0 +1,701 @@
+import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+
+import '../api/api_service.dart';
+import '../models/favorite_city.dart';
+import '../models/popular_city.dart';
+import '../models/weather_data.dart';
+import '../theme/app_theme.dart';
+import 'favorites_screen.dart';
+
+// Layar Kelola Kota Favorit — Menampilkan grid kota favorit untuk slider Beranda
+// dan daftar kota lainnya di bawahnya.
+// Jika kota dihapus dari favorit, otomatis pindah ke bawah (kota lainnya).
+// Jika kota di bawah ditambahkan, otomatis naik ke grid favorit di atas.
+class SelectFavoritesScreen extends StatefulWidget {
+  const SelectFavoritesScreen({super.key});
+
+  @override
+  State<SelectFavoritesScreen> createState() => _SelectFavoritesScreenState();
+}
+
+class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
+  String _query = '';
+  final TextEditingController _searchCtrl = TextEditingController();
+
+  // Cache cuaca lokal untuk layar ini
+  final Map<String, WeatherData?> _weatherCache = {};
+  final Map<String, bool> _loadingMap = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAllWeather();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  String _cacheKey(String name, String province) =>
+      '${name.toLowerCase()}|${province.toLowerCase()}';
+
+  Future<void> _loadWeatherForCity(String name, String province, double lat, double lon) async {
+    final key = _cacheKey(name, province);
+    // Cek cache statis global dulu jika sudah ada
+    final cached = WeatherCache.get(key);
+    if (cached != null) {
+      if (_weatherCache[key] == null) {
+        setState(() => _weatherCache[key] = cached);
+      }
+      return;
+    }
+
+    if (_loadingMap[key] == true) return;
+    _loadingMap[key] = true;
+
+    try {
+      final data = await ApiService.getWeather(lat, lon);
+      WeatherCache.set(key, data);
+      if (mounted) {
+        setState(() => _weatherCache[key] = data);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _weatherCache[key] = null);
+      }
+    } finally {
+      _loadingMap[key] = false;
+    }
+  }
+
+  void _loadAllWeather() {
+    for (final city in popularCities) {
+      _loadWeatherForCity(city.name, city.province, city.lat, city.lon);
+    }
+  }
+
+  // Hapus kota dari favorit
+  void _removeFromFavorites(Box<FavoriteCity> box, int index, String cityName) {
+    box.deleteAt(index);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Kota "$cityName" dihapus dari favorit.'),
+        duration: const Duration(seconds: 1),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  // ── Kartu Grid Favorit (Gaya Card Elegan 2 Kolom Sesuai Referensi) ───────
+  Widget _buildFavoriteGridCard(
+    BuildContext context, {
+    required FavoriteCity city,
+    required int index,
+    required Box<FavoriteCity> box,
+  }) {
+    final c = context.pc;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final key = _cacheKey(city.name, city.province);
+    final weather = _weatherCache[key] ?? WeatherCache.get(key);
+    final isLoading = _loadingMap[key] == true && weather == null;
+
+    if (weather == null && !isLoading) {
+      _loadWeatherForCity(city.name, city.province, city.lat, city.lon);
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? c.glass : Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isDark ? c.glassBorder : const Color(0xFFE2E8F0),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.25)
+                : const Color(0xFF1E3A60).withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Padding(
+          padding: const EdgeInsets.all(14.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Header kartu: Nama kota, Provinsi + Tombol Hati Biru Aktif
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          city.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: c.text,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          city.province,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: c.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Tombol favorit (ketuk untuk menghapus dari favorit)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () => _removeFromFavorites(box, index, city.name),
+                    child: Container(
+                      padding: const EdgeInsets.all(6.0),
+                      decoration: BoxDecoration(
+                        color: c.accent.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.favorite_rounded,
+                        size: 18,
+                        color: c.accent,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // Tengah kartu: Suhu besar di kiri & Ikon cuaca biru outline di kanan
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (isLoading)
+                    const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                      ),
+                    )
+                  else if (weather != null)
+                    Text(
+                      '${weather.tempC.round()}°',
+                      style: TextStyle(
+                        fontSize: 34,
+                        fontWeight: FontWeight.w700,
+                        color: c.text,
+                        height: 1,
+                      ),
+                    )
+                  else
+                    Text(
+                      '--',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w300,
+                        color: c.textMuted,
+                      ),
+                    ),
+
+                  // Ikon cuaca
+                  if (weather != null)
+                    Icon(
+                      weather.icon,
+                      size: 36,
+                      color: c.accent,
+                    )
+                  else
+                    Icon(
+                      Icons.cloud_outlined,
+                      size: 36,
+                      color: c.textMuted.withValues(alpha: 0.4),
+                    ),
+                ],
+              ),
+
+              // Bawah kartu: Pill badge kondisi cuaca riil & parameter kelembapan
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (weather != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: c.chipBg,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        weather.condition,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: c.chipText,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Kelembapan ${weather.humidity}%',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: c.textMuted,
+                      ),
+                    ),
+                  ] else ...[
+                    Text(
+                      'Memuat cuaca...',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: c.textMuted,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.pc;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final box = Hive.box<FavoriteCity>('favorites');
+
+    return GlassScaffold(
+      body: SafeArea(
+        child: ValueListenableBuilder<Box<FavoriteCity>>(
+          valueListenable: box.listenable(),
+          builder: (context, favBox, _) {
+            // Set kota favorit saat ini (lowercase untuk perbandingan)
+            final favNames = favBox.values
+                .map((f) => f.name.toLowerCase())
+                .toSet();
+
+            // Kota populer yang BELUM difavoritkan (akan muncul di section bawah)
+            final nonFavorites = popularCities
+                .where((city) => !favNames.contains(city.name.toLowerCase()))
+                .where((city) =>
+                    _query.isEmpty ||
+                    city.name.toLowerCase().contains(_query.toLowerCase()) ||
+                    city.province.toLowerCase().contains(_query.toLowerCase()))
+                .toList();
+
+            return CustomScrollView(
+              slivers: [
+                // ── App Bar ───────────────────────────────────────────────
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 6, 16, 2),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.arrow_back_rounded, color: c.text),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Kota Favorit Beranda',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: c.text,
+                                ),
+                              ),
+                              Text(
+                                'Semua kota di bawah ini otomatis tampil di slider Beranda',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: c.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // ── Section 1: KOTA FAVORIT SAYA ──────────────────────────
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.favorite_rounded, size: 16, color: c.accent),
+                        const SizedBox(width: 6),
+                        Text(
+                          'KOTA FAVORIT SAYA',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: c.text,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: c.accent.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${favBox.length}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: c.accent,
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          'Ketuk ♥ untuk menghapus',
+                          style: TextStyle(fontSize: 10, color: c.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Grid 2-kolom jika ada kota favorit
+                if (favBox.isNotEmpty)
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    sliver: SliverGrid(
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 0.88,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final city = favBox.getAt(index);
+                          if (city == null) return const SizedBox.shrink();
+
+                          return _buildFavoriteGridCard(
+                            context,
+                            city: city,
+                            index: index,
+                            box: favBox,
+                          );
+                        },
+                        childCount: favBox.length,
+                      ),
+                    ),
+                  )
+                else
+                  // Empty state jika belum ada kota favorit
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: GlassCard(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.favorite_border_rounded,
+                              size: 40,
+                              color: c.accent.withValues(alpha: 0.6),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Belum Ada Kota Favorit',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: c.text,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Pilih kota di bawah untuk disematkan ke slider Beranda.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 11, color: c.textMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // ── Divider Pemisah yang Jelas ─────────────────────────────
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                    child: Divider(color: c.glassBorder),
+                  ),
+                ),
+
+                // ── Section 2: TAMBAH KOTA LAINNYA ────────────────────────
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+                    child: Row(
+                      children: [
+                        Icon(Icons.add_location_alt_rounded, size: 16, color: c.textMuted),
+                        const SizedBox(width: 6),
+                        Text(
+                          'PILIH KOTA LAINNYA',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: c.textMuted,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '(${nonFavorites.length} tersedia)',
+                          style: TextStyle(fontSize: 11, color: c.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Search bar untuk mencari kota yang belum difavoritkan
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                    child: GlassCard(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      child: Row(
+                        children: [
+                          Icon(Icons.search_rounded, color: c.textMuted, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: _searchCtrl,
+                              onChanged: (v) => setState(() => _query = v),
+                              style: TextStyle(color: c.text, fontSize: 13),
+                              decoration: InputDecoration(
+                                hintText: 'Cari kota untuk ditambahkan...',
+                                hintStyle: TextStyle(color: c.textMuted, fontSize: 13),
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ),
+                          ),
+                          if (_query.isNotEmpty)
+                            GestureDetector(
+                              onTap: () {
+                                _searchCtrl.clear();
+                                setState(() => _query = '');
+                              },
+                              child: Icon(Icons.close_rounded, color: c.textMuted, size: 16),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // List kota yang belum difavoritkan
+                if (nonFavorites.isEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Center(
+                        child: Text(
+                          _query.isEmpty
+                              ? 'Semua kota sudah ada di favorit Anda!'
+                              : 'Kota "$_query" tidak ditemukan.',
+                          style: TextStyle(fontSize: 13, color: c.textMuted),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final city = nonFavorites[index];
+                        final key = _cacheKey(city.name, city.province);
+                        final weather = _weatherCache[key] ?? WeatherCache.get(key);
+
+                        final iconColor = weather != null
+                            ? WeatherCategoryHelper.weatherIconColor(weather.weatherCode, isDark)
+                            : c.accent;
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          child: GlassCard(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            child: Row(
+                              children: [
+                                // Avatar bulat berdasarkan kondisi cuaca riil
+                                Container(
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    color: iconColor.withValues(alpha: isDark ? 0.18 : 0.12),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    weather != null ? weather.icon : Icons.location_city_rounded,
+                                    size: 20,
+                                    color: iconColor,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        city.name,
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          color: c.text,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              city.province,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(fontSize: 11, color: c.textMuted),
+                                            ),
+                                          ),
+                                          if (weather != null) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: iconColor.withValues(alpha: isDark ? 0.2 : 0.12),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                weather.condition,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: iconColor,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Suhu + kelembapan ringkas
+                                if (weather != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 10),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          '${weather.tempC.round()}°',
+                                          style: TextStyle(
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.bold,
+                                            color: c.text,
+                                          ),
+                                        ),
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.water_drop_outlined, size: 10, color: c.textMuted),
+                                            const SizedBox(width: 2),
+                                            Text(
+                                              '${weather.humidity}%',
+                                              style: TextStyle(fontSize: 10, color: c.textMuted),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                // Tombol Tambah ke Favorit
+                                InkWell(
+                                  borderRadius: BorderRadius.circular(20),
+                                  onTap: () {
+                                    FavoritesScreen.saveFavoriteCity(
+                                      context,
+                                      name: city.name,
+                                      province: city.province,
+                                      lat: city.lat,
+                                      lon: city.lon,
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(7),
+                                    decoration: BoxDecoration(
+                                      color: c.accent.withValues(alpha: 0.15),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.add_rounded,
+                                      size: 20,
+                                      color: c.accent,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                      childCount: nonFavorites.length,
+                    ),
+                  ),
+
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: 32),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}

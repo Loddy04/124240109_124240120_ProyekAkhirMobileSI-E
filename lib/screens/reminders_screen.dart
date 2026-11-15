@@ -11,6 +11,32 @@ import 'add_reminder_screen.dart';
 class RemindersScreen extends StatelessWidget {
   const RemindersScreen({super.key});
 
+  // Format tanggal pengingat untuk tampilan kartu
+  String _formatReminderDate(Reminder r) {
+    if (r.repeatDaily) return 'Setiap Hari';
+    if (r.date == null || r.date!.isEmpty) return 'Sekali (Hari ini/Besok)';
+
+    final dt = DateTime.tryParse(r.date!);
+    if (dt == null) return r.date!;
+
+    const hari = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+    const bulan = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+    ];
+    final namaHari = hari[dt.weekday - 1];
+    final namaBulan = bulan[dt.month - 1];
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final target = DateTime(dt.year, dt.month, dt.day);
+    final diff = target.difference(today).inDays;
+
+    if (diff == 0) return 'Hari ini (${dt.day} $namaBulan)';
+    if (diff == 1) return 'Besok (${dt.day} $namaBulan)';
+    return '$namaHari, ${dt.day} $namaBulan ${dt.year}';
+  }
+
   // Dialog konfirmasi hapus pengingat dengan aturan ID berbasis key Hive (PBI-034)
   void _confirmDelete(BuildContext context, Reminder reminder) {
     final c = context.pc;
@@ -154,24 +180,58 @@ class RemindersScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Baris Atas: Jam dan Status Notifikasi
+                    // Baris Atas: Jam, Tanggal, dan Status Notifikasi
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Icon(Icons.access_time_rounded, size: 20, color: c.accent),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${reminder.time} WIB',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: c.text,
-                                letterSpacing: 0.5,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.access_time_rounded, size: 20, color: c.accent),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${reminder.time} WIB',
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: c.text,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 4),
+                              // Tanggal Terjadwal
+                              Row(
+                                children: [
+                                  Icon(
+                                    reminder.repeatDaily
+                                        ? Icons.repeat_rounded
+                                        : Icons.calendar_today_rounded,
+                                    size: 13,
+                                    color: c.accent,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Flexible(
+                                    child: Text(
+                                      _formatReminderDate(reminder),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: c.textMuted,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
 
                         // Chip status notifikasi
@@ -194,9 +254,7 @@ class RemindersScreen extends StatelessWidget {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                reminder.notifOn
-                                    ? (reminder.repeatDaily ? 'Setiap Hari' : 'Sekali')
-                                    : 'Mati',
+                                reminder.notifOn ? 'Aktif' : 'Mati',
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
@@ -210,7 +268,7 @@ class RemindersScreen extends StatelessWidget {
                     ),
                     const Divider(height: 20),
 
-                    // Baris Judul & Kota
+                    // Judul Pengingat
                     Text(
                       reminder.title,
                       style: TextStyle(
@@ -218,17 +276,6 @@ class RemindersScreen extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                         color: c.text,
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.location_on_outlined, size: 14, color: c.textMuted),
-                        const SizedBox(width: 4),
-                        Text(
-                          reminder.cityName,
-                          style: TextStyle(fontSize: 13, color: c.textMuted),
-                        ),
-                      ],
                     ),
 
                     // Catatan Tambahan (jika ada)
