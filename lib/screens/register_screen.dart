@@ -1,6 +1,15 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/favorite_city.dart';
+import '../models/gear_item.dart';
+import '../models/reminder.dart';
+import '../services/notification_service.dart';
+import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/input_field.dart';
 
@@ -35,6 +44,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  // Helper: hash password dengan SHA-256 sebelum disimpan ke penyimpanan lokal
+  // Memastikan password tidak tersimpan sebagai plain-text
+  String _hashPassword(String password) {
+    final bytes = utf8.encode(password);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
   }
 
   // Proses validasi dan pendaftaran akun ke SharedPreferences
@@ -84,10 +101,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Simpan data kredensial akun terdaftar ke SharedPreferences
+      // 1. Batalkan seluruh jadwal notifikasi dari akun lama
+      await NotificationService().cancelAll();
+
+      // 2. Bersihkan seluruh data riwayat aktivitas (Hive boxes)
+      // agar akun baru memulai dalam kondisi bersih tanpa riwayat akun sebelumnya
+      await Hive.box<Reminder>('reminders').clear();
+      await Hive.box<FavoriteCity>('favorites').clear();
+      await Hive.box<GearItem>('gear').clear();
+      await Hive.box<String>('weather_cache').clear();
+
+      // 3. Bersihkan foto profil dan reset preferensi pengaturan ke default
+      await prefs.remove('profileImagePath');
+      await prefs.setBool('darkMode', false);
+      await prefs.setString('tempUnit', 'C');
+      await prefs.setString('mainCity', 'Yogyakarta');
+      await prefs.setDouble('mainLat', -7.79);
+      await prefs.setDouble('mainLon', 110.36);
+      SettingsService.themeModeNotifier.value = ThemeMode.light;
+
+      // 4. Simpan data kredensial akun baru ke SharedPreferences
       await prefs.setString('registered_fullName', fullName);
       await prefs.setString('registered_username', username);
-      await prefs.setString('registered_password', password);
+      // Password disimpan sebagai hash SHA-256, bukan plain-text
+      await prefs.setString('registered_password', _hashPassword(password));
 
       if (!mounted) return;
 

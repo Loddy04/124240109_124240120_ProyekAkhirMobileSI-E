@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Layanan pengaturan aplikasi (Shared Preferences) - F8 / PBI-021
@@ -5,9 +6,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 class SettingsService {
   static SharedPreferences? _prefs;
 
+  // Notifier tema untuk update real-time di seluruh aplikasi (PBI-061)
+  static final ValueNotifier<ThemeMode> themeModeNotifier =
+      ValueNotifier<ThemeMode>(ThemeMode.light);
+
   // Inisialisasi instance SharedPreferences saat aplikasi mulai
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
+    themeModeNotifier.value = darkMode ? ThemeMode.dark : ThemeMode.light;
   }
 
   // Getter satuan suhu ('C' atau 'F'), default 'C'
@@ -44,6 +50,7 @@ class SettingsService {
   // Setter status tema gelap
   static Future<void> setDarkMode(bool isDark) async {
     await _prefs?.setBool('darkMode', isDark);
+    themeModeNotifier.value = isDark ? ThemeMode.dark : ThemeMode.light;
   }
 
   // Setter kota utama Beranda beserta koordinatnya
@@ -51,5 +58,17 @@ class SettingsService {
     await _prefs?.setString('mainCity', city);
     await _prefs?.setDouble('mainLat', lat);
     await _prefs?.setDouble('mainLon', lon);
+  }
+
+  // Getter jalur file foto profil pengguna
+  static String? get profileImagePath => _prefs?.getString('profileImagePath');
+
+  // Setter jalur file foto profil pengguna
+  static Future<void> setProfileImagePath(String? path) async {
+    if (path == null) {
+      await _prefs?.remove('profileImagePath');
+    } else {
+      await _prefs?.setString('profileImagePath', path);
+    }
   }
 }

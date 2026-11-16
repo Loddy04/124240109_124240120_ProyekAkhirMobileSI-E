@@ -5,6 +5,7 @@ import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
 import 'favorites_screen.dart';
 import 'home_screen.dart';
+import 'gear_screen.dart';
 import 'profile_screen.dart';
 import 'reminders_screen.dart';
 
@@ -73,11 +74,7 @@ class _RootScreenState extends State<RootScreen> {
       HomeScreen(namaLengkap: SettingsService.fullName),
       const FavoritesScreen(),
       const RemindersScreen(),
-      _buildPlaceholder(
-        title: 'Perlengkapan Hujan',
-        icon: Icons.backpack_outlined,
-        subtitle: 'Tab keranjang perlengkapan (Sprint 4).',
-      ),
+      const GearScreen(),
       ProfileScreen(
         onNameChanged: () {
           setState(() {}); // Segarkan sapaan di Beranda jika nama diedit

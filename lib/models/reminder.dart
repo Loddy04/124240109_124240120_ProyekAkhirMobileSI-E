@@ -30,6 +30,12 @@ class Reminder extends HiveObject {
   @HiveField(7, defaultValue: false)
   bool repeatDaily;
 
+  // Tanggal pengingat (opsional, null = sesuai repeatDaily logika).
+  // Disimpan sebagai "yyyy-MM-dd" string agar kompatibel Hive.
+  // Null berarti: jika repeatDaily=true→setiap hari; jika false→besok/hari ini.
+  @HiveField(8, defaultValue: null)
+  String? date;
+
   Reminder({
     required this.title,
     required this.cityName,
@@ -39,6 +45,14 @@ class Reminder extends HiveObject {
     required this.note,
     this.notifOn = false,
     this.repeatDaily = false,
+    this.date,
   });
+
+  // Helper: kembalikan DateTime tanggal pengingat (atau null jika tidak diisi)
+  DateTime? get dateTime {
+    if (date == null || date!.isEmpty) return null;
+    return DateTime.tryParse(date!);
+  }
 }
+
 

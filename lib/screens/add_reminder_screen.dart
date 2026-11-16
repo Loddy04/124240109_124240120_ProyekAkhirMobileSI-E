@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 
-import '../models/favorite_city.dart';
 import '../models/reminder.dart';
 import '../services/notification_service.dart';
 import '../services/settings_service.dart';
@@ -30,18 +29,17 @@ class AddReminderScreen extends StatefulWidget {
 
 class _AddReminderScreenState extends State<AddReminderScreen> {
   late final TextEditingController _titleController;
-  late final TextEditingController _cityNameController;
   late final TextEditingController _noteController;
 
   late bool _isEditMode;
   late String _selectedTime;
+  late DateTime _selectedDate;
   late double _lat;
   late double _lon;
   late bool _notifOn;
   late bool _repeatDaily;
 
   bool _isTitleError = false;
-  bool _isCityError = false;
 
   @override
   void initState() {
@@ -52,9 +50,6 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
     _titleController = TextEditingController(
       text: r?.title ?? widget.judulAwal ?? '',
     );
-    _cityNameController = TextEditingController(
-      text: r?.cityName ?? widget.kotaAwal ?? SettingsService.mainCity,
-    );
     _noteController = TextEditingController(text: r?.note ?? '');
 
     _selectedTime = r?.time ?? '07:00';
@@ -62,15 +57,69 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
     _lon = r?.lon ?? SettingsService.mainLon;
     _notifOn = r?.notifOn ?? true;
     _repeatDaily = r?.repeatDaily ?? false;
+
+    if (r?.date != null && r!.date!.isNotEmpty) {
+      _selectedDate = DateTime.tryParse(r.date!) ?? DateTime.now();
+    } else {
+      _selectedDate = DateTime.now();
+    }
   }
 
   @override
   void dispose() {
-    // Penyelamatan memori: wajib dispose controller sesuai aturan PBI-033
     _titleController.dispose();
-    _cityNameController.dispose();
     _noteController.dispose();
     super.dispose();
+  }
+
+  // Format tanggal bahasa Indonesia
+  String _formatDateIndo(DateTime dt) {
+    const hari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+    const bulan = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+    ];
+    final namaHari = hari[dt.weekday - 1];
+    final namaBulan = bulan[dt.month - 1];
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final target = DateTime(dt.year, dt.month, dt.day);
+    final diff = target.difference(today).inDays;
+
+    String relLabel = '';
+    if (diff == 0) {
+      relLabel = ' (Hari ini)';
+    } else if (diff == 1) {
+      relLabel = ' (Besok)';
+    }
+
+    return '$namaHari, ${dt.day} $namaBulan ${dt.year}$relLabel';
+  }
+
+  // Pemilih tanggal — dibatasi maksimal 7 hari ke depan (hari ini s.d H+6)
+  // sesuai rentang prakiraan cuaca Open-Meteo
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final initialDate = _selectedDate.isBefore(today) ? today : _selectedDate;
+    final maxDate = today.add(const Duration(days: 6)); // 7 hari total (hari ini s.d H+6)
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate.isAfter(maxDate) ? maxDate : initialDate,
+      firstDate: today,
+      lastDate: maxDate,
+      helpText: 'Pilih Tanggal Pengingat (Maks 7 Hari)',
+      cancelText: 'Batal',
+      confirmText: 'Pilih',
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
   }
 
   // Pemilih jam menggunakan showTimePicker format 24 jam Indonesia (tanpa AM/PM)
@@ -100,25 +149,17 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
     }
   }
 
-  // Pilih koordinat otomatis dari daftar Kota Favorit yang ada di Hive
-  void _selectFromFavorites(FavoriteCity city) {
-    setState(() {
-      _cityNameController.text = city.name;
-      _lat = city.lat;
-      _lon = city.lon;
-      _isCityError = false;
-    });
-  }
+  // Format string tanggal "yyyy-MM-dd"
+  String get _dateString =>
+      '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
 
   // Proses simpan pengingat (tambah baru atau simpan perubahan)
   Future<void> _saveReminder() async {
     final title = _titleController.text.trim();
-    final cityName = _cityNameController.text.trim();
     final note = _noteController.text.trim();
 
     setState(() {
       _isTitleError = false;
-      _isCityError = false;
     });
 
     // Validator form tidak boleh kosong
@@ -128,25 +169,21 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
       return;
     }
 
-    if (cityName.isEmpty) {
-      setState(() => _isCityError = true);
-      _showSnackBar('Nama kota tidak boleh kosong.');
-      return;
-    }
-
     final box = Hive.box<Reminder>('reminders');
+    final savedDate = _repeatDaily ? null : _dateString;
 
     if (_isEditMode) {
       // 1. Mode Edit: perbarui object pengingat dan simpan
       final r = widget.reminder!;
       r.title = title;
-      r.cityName = cityName;
+      r.cityName = r.cityName; // pertahankan nilai kota bawaan
       r.lat = _lat;
       r.lon = _lon;
       r.time = _selectedTime;
       r.note = note;
       r.notifOn = _notifOn;
       r.repeatDaily = _repeatDaily;
+      r.date = savedDate;
 
       await r.save();
 
@@ -157,7 +194,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
       }
 
       if (_notifOn) {
-        NotificationService().schedule(r, Object());
+        NotificationService().schedule(r);
       }
 
       if (!mounted) return;
@@ -171,20 +208,21 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
       // 2. Mode Tambah Baru: buat objek dan simpan dengan box.add (PBI-034)
       final newReminder = Reminder(
         title: title,
-        cityName: cityName,
+        cityName: '',
         lat: _lat,
         lon: _lon,
         time: _selectedTime,
         note: note,
         notifOn: _notifOn,
         repeatDaily: _repeatDaily,
+        date: savedDate,
       );
 
       await box.add(newReminder);
 
       // Jadwalkan notifikasi jika opsi notifikasi aktif
       if (_notifOn) {
-        NotificationService().schedule(newReminder, Object());
+        NotificationService().schedule(newReminder);
       }
 
       if (!mounted) return;
@@ -212,7 +250,6 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
   @override
   Widget build(BuildContext context) {
     final c = context.pc;
-    final favoriteBox = Hive.box<FavoriteCity>('favorites');
 
     return GlassScaffold(
       body: SafeArea(
@@ -267,56 +304,6 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
                           ),
                           const SizedBox(height: 18),
 
-                          // Nama Kota
-                          InputField(
-                            controller: _cityNameController,
-                            label: 'Kota Pemantauan',
-                            hint: 'Masukkan nama kota',
-                            prefixIcon: Icons.location_city_rounded,
-                            isError: _isCityError,
-                            textInputAction: TextInputAction.next,
-                            onChanged: (_) {
-                              if (_isCityError) setState(() => _isCityError = false);
-                            },
-                          ),
-                          const SizedBox(height: 10),
-
-                          // Tombol Cepat: Pilih dari Kota Favorit
-                          if (favoriteBox.isNotEmpty) ...[
-                            Text(
-                              'Pilih cepat dari Kota Favorit:',
-                              style: TextStyle(fontSize: 12, color: c.textMuted),
-                            ),
-                            const SizedBox(height: 8),
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: favoriteBox.values.map((city) {
-                                  final isSelected = _cityNameController.text == city.name;
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 8.0),
-                                    child: ActionChip(
-                                      avatar: Icon(
-                                        Icons.star_rounded,
-                                        size: 16,
-                                        color: isSelected ? Colors.white : c.accent,
-                                      ),
-                                      label: Text(city.name),
-                                      backgroundColor: isSelected ? c.accent : c.chipBg,
-                                      labelStyle: TextStyle(
-                                        color: isSelected ? Colors.white : c.chipText,
-                                        fontSize: 12,
-                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                      ),
-                                      onPressed: () => _selectFromFavorites(city),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                            const SizedBox(height: 18),
-                          ],
-
                           // Pemilih Jam Pengingat
                           Text(
                             'Waktu Pengingat',
@@ -364,6 +351,91 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
                           ),
                           const SizedBox(height: 18),
 
+                          // Pemilih Tanggal Pengingat (Maks 7 hari sesuai batas prediksi cuaca)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Tanggal Pengingat',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: c.text,
+                                ),
+                              ),
+                              if (!_repeatDaily)
+                                Text(
+                                  'Maks 7 hari',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: c.accent,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          InkWell(
+                            onTap: _repeatDaily ? null : _pickDate,
+                            borderRadius: BorderRadius.circular(AppTheme.radiusField),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              decoration: BoxDecoration(
+                                color: _repeatDaily ? c.glass.withValues(alpha: 0.4) : c.glass,
+                                borderRadius: BorderRadius.circular(AppTheme.radiusField),
+                                border: Border.all(color: c.glassBorder),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.calendar_month_rounded,
+                                          color: _repeatDaily ? c.textMuted : c.accent,
+                                          size: 22,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Flexible(
+                                          child: Text(
+                                            _repeatDaily
+                                                ? 'Setiap Hari (Otomatis)'
+                                                : _formatDateIndo(_selectedDate),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                              color: _repeatDaily ? c.textMuted : c.text,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (!_repeatDaily)
+                                    Text(
+                                      'Pilih Tanggal',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: c.accent,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _repeatDaily
+                                ? 'Notifikasi akan aktif setiap hari pada jam tersebut.'
+                                : 'Prakiraan cuaca akurat tersedia maksimal 7 hari ke depan.',
+                            style: TextStyle(fontSize: 11, color: c.textMuted),
+                          ),
+                          const SizedBox(height: 18),
+
                           // Catatan Tambahan
                           InputField(
                             controller: _noteController,
@@ -393,7 +465,18 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
                               style: TextStyle(fontSize: 12, color: c.textMuted),
                             ),
                             value: _notifOn,
-                            onChanged: (val) {
+                            onChanged: (val) async {
+                              if (val) {
+                                final granted = await NotificationService().requestPermission();
+                                if (!granted) {
+                                  if (mounted) {
+                                    _showSnackBar(
+                                      'Izin notifikasi belum diberikan. Aktifkan izin pada pengaturan perangkat.',
+                                    );
+                                  }
+                                  return;
+                                }
+                              }
                               setState(() => _notifOn = val);
                             },
                           ),
