@@ -15,9 +15,12 @@ class ApiService {
       'longitude': lon.toString(),
       'current':
           'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m',
-      'hourly': 'temperature_2m,precipitation_probability,weather_code',
+      // Per jam: tambahan uv_index, angin, dan kelembapan untuk Detail dan Aktivitas (F3, F7)
+      'hourly':
+          'temperature_2m,precipitation_probability,weather_code,uv_index,wind_speed_10m,relative_humidity_2m',
+      // Harian: tambahan matahari terbit dan terbenam serta jumlah hujan (F2, F3)
       'daily':
-          'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max',
+          'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,sunrise,sunset,precipitation_sum',
       'timezone': 'auto',
     });
 

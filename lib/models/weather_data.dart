@@ -21,6 +21,10 @@ class WeatherData {
   final List<double> hourlyTemp;
   final List<int> hourlyRain;
   final List<int> hourlyCode;
+  // Tambahan per jam untuk Detail dan penilaian Aktivitas (F3, F7)
+  final List<double> hourlyUv;
+  final List<double> hourlyWind;
+  final List<int> hourlyHumidity;
 
   // Prakiraan harian ("daily"): list paralel, indeks yang sama = hari yang sama
   final List<String> dailyTime;
@@ -29,6 +33,10 @@ class WeatherData {
   final List<double> dailyMin;
   final List<int> dailyRain;
   final List<double> dailyUv;
+  // Tambahan harian: matahari terbit dan terbenam ("yyyy-MM-ddTHH:mm") serta jumlah hujan (mm)
+  final List<String> dailySunrise;
+  final List<String> dailySunset;
+  final List<double> dailyPrecipSum;
 
   // true bila data berasal dari cache saat offline (F14)
   final bool isFromCache;
@@ -45,12 +53,18 @@ class WeatherData {
     required this.hourlyTemp,
     required this.hourlyRain,
     required this.hourlyCode,
+    required this.hourlyUv,
+    required this.hourlyWind,
+    required this.hourlyHumidity,
     required this.dailyTime,
     required this.dailyCode,
     required this.dailyMax,
     required this.dailyMin,
     required this.dailyRain,
     required this.dailyUv,
+    required this.dailySunrise,
+    required this.dailySunset,
+    required this.dailyPrecipSum,
     this.isFromCache = false,
   });
 
@@ -67,12 +81,18 @@ class WeatherData {
           hourlyTemp: const [],
           hourlyRain: const [],
           hourlyCode: const [],
+          hourlyUv: const [],
+          hourlyWind: const [],
+          hourlyHumidity: const [],
           dailyTime: const [],
           dailyCode: const [],
           dailyMax: const [],
           dailyMin: const [],
           dailyRain: const [],
           dailyUv: const [],
+          dailySunrise: const [],
+          dailySunset: const [],
+          dailyPrecipSum: const [],
         );
 
   // Factory constructor: mengubah hasil jsonDecode menjadi objek WeatherData.
@@ -97,12 +117,18 @@ class WeatherData {
       hourlyTemp: _toDoubles(hourly['temperature_2m']),
       hourlyRain: _toInts(hourly['precipitation_probability']),
       hourlyCode: _toInts(hourly['weather_code']),
+      hourlyUv: _toDoubles(hourly['uv_index']),
+      hourlyWind: _toDoubles(hourly['wind_speed_10m']),
+      hourlyHumidity: _toInts(hourly['relative_humidity_2m']),
       dailyTime: _toStrings(daily['time']),
       dailyCode: _toInts(daily['weather_code']),
       dailyMax: _toDoubles(daily['temperature_2m_max']),
       dailyMin: _toDoubles(daily['temperature_2m_min']),
       dailyRain: _toInts(daily['precipitation_probability_max']),
       dailyUv: _toDoubles(daily['uv_index_max']),
+      dailySunrise: _toStrings(daily['sunrise']),
+      dailySunset: _toStrings(daily['sunset']),
+      dailyPrecipSum: _toDoubles(daily['precipitation_sum']),
       isFromCache: fromCache,
     );
   }
