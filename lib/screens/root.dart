@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
 import 'favorites_screen.dart';
+import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'reminders_screen.dart';
 
@@ -68,11 +69,8 @@ class _RootScreenState extends State<RootScreen> {
 
     // Daftar 5 halaman tab aplikasi
     final List<Widget> pages = [
-      _buildPlaceholder(
-        title: 'Halo, ${SettingsService.fullName}! 👋',
-        icon: Icons.cloud_outlined,
-        subtitle: 'Selamat datang di Payungin. Pantau Skor Payung hari ini (Sprint 2 - Loddy).',
-      ),
+      // Beranda cuaca (F2); nama dikirim agar sapaan ikut berubah saat diedit di Profil
+      HomeScreen(namaLengkap: SettingsService.fullName),
       const FavoritesScreen(),
       const RemindersScreen(),
       _buildPlaceholder(
