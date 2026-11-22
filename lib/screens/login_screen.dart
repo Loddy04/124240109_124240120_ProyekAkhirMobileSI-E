@@ -1,15 +1,16 @@
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/favorite_city.dart';
-import '../models/gear_item.dart';
 import '../models/reminder.dart';
 import '../models/user.dart';
 import '../services/notification_service.dart';
+import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/input_field.dart';
 import 'register_screen.dart';
@@ -57,12 +58,16 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // Cek sesi pengguna di SharedPreferences (F1)
+  // Sesi dianggap valid maksimal 7 hari sejak login terakhir
   Future<void> _checkLogin() async {
     final prefs = await SharedPreferences.getInstance();
     final isLoggedIn = prefs.getBool('loginData') ?? false;
 
-    // Jika sudah login, langsung alihkan ke Root
-    if (isLoggedIn && mounted) {
+    // Inisialisasi SettingsService agar sessionExpired bisa dibaca
+    await SettingsService.init();
+
+    // Jika sudah login DAN sesi belum kadaluarsa (< 7 hari), langsung ke Root
+    if (isLoggedIn && !SettingsService.sessionExpired && mounted) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const RootScreen()),
@@ -70,7 +75,13 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Jika belum login, hentikan loading dan tampilkan form
+    // Jika sesi kadaluarsa, hapus flag login dan paksa login ulang
+    if (isLoggedIn && SettingsService.sessionExpired) {
+      await prefs.setBool('loginData', false);
+      await SettingsService.clearLoginTimestamp();
+    }
+
+    // Tampilkan form login
     if (mounted) {
       setState(() {
         _isCheckingSession = false;
@@ -121,18 +132,18 @@ class _LoginScreenState extends State<LoginScreen> {
       // bersihkan data histori agar tidak tertukar/terbawa ke akun baru
       final previousUser = prefs.getString('last_active_user');
       if (previousUser != null && previousUser != username.toLowerCase()) {
-        await NotificationService().cancelAll();
+        if (!kIsWeb) await NotificationService().cancelAll();
         await Hive.box<Reminder>('reminders').clear();
         await Hive.box<FavoriteCity>('favorites').clear();
-        await Hive.box<GearItem>('gear').clear();
         await Hive.box<String>('weather_cache').clear();
         await prefs.remove('profileImagePath');
       }
       await prefs.setString('last_active_user', username.toLowerCase());
 
-      // Simpan status sesi aktif
+      // Simpan status sesi aktif + timestamp login untuk batas 7 hari
       await prefs.setBool('loginData', true);
       await prefs.setString('username', username);
+      await SettingsService.saveLoginTimestamp();
 
       // Simpan atau pertahankan nama lengkap
       if (isRegistered && regFullName != null && regFullName.isNotEmpty) {

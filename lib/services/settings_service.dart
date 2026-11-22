@@ -71,4 +71,24 @@ class SettingsService {
       await _prefs?.setString('profileImagePath', path);
     }
   }
+
+  // ── Sesi Login (PBI-083 tambahan) ──────────────────────────────────────────
+
+  // Simpan timestamp saat berhasil login (milidetik epoch)
+  static Future<void> saveLoginTimestamp() async {
+    await _prefs?.setInt('loginTimestamp', DateTime.now().millisecondsSinceEpoch);
+  }
+
+  // Hapus timestamp saat logout
+  static Future<void> clearLoginTimestamp() async {
+    await _prefs?.remove('loginTimestamp');
+  }
+
+  // Cek apakah sesi sudah kadaluarsa (> 7 hari)
+  static bool get sessionExpired {
+    final ts = _prefs?.getInt('loginTimestamp');
+    if (ts == null) return true; // belum pernah login = anggap expired
+    final loginTime = DateTime.fromMillisecondsSinceEpoch(ts);
+    return DateTime.now().difference(loginTime).inDays >= 7;
+  }
 }

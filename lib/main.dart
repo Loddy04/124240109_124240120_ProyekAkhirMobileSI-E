@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'models/favorite_city.dart';
-import 'models/gear_item.dart';
 import 'models/reminder.dart';
 import 'screens/login_screen.dart';
 import 'services/notification_service.dart';
@@ -16,15 +15,13 @@ Future<void> main() async {
   // 2. Inisialisasi penyimpanan lokal Hive untuk Flutter
   await Hive.initFlutter();
 
-  // 3. Registrasi adapter Hive untuk model buatan
+  // 3. Registrasi adapter Hive untuk model buatan (typeId 2 Perlengkapan dipensiunkan)
   Hive.registerAdapter(ReminderAdapter());
   Hive.registerAdapter(FavoriteCityAdapter());
-  Hive.registerAdapter(GearItemAdapter());
 
   // 4. Membuka box Hive data utama dan box cache cuaca milik Loddy
   await Hive.openBox<Reminder>('reminders');
   await Hive.openBox<FavoriteCity>('favorites');
-  await Hive.openBox<GearItem>('gear');
   await Hive.openBox<String>('weather_cache');
 
   // 5. Inisialisasi layanan pengaturan aplikasi

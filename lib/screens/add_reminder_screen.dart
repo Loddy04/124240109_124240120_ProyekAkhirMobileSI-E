@@ -14,6 +14,8 @@ class AddReminderScreen extends StatefulWidget {
   final Reminder? reminder;
   final String? judulAwal;
   final String? kotaAwal;
+  // Flag untuk menandai pemakaian kembali (Pakai lagi)
+  final bool isReuse;
 
   const AddReminderScreen({
     super.key,
@@ -21,7 +23,9 @@ class AddReminderScreen extends StatefulWidget {
     this.reminder,
     this.judulAwal,
     this.kotaAwal,
+    this.isReuse = false,
   });
+
 
   @override
   State<AddReminderScreen> createState() => _AddReminderScreenState();
@@ -44,7 +48,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
   @override
   void initState() {
     super.initState();
-    _isEditMode = widget.reminder != null;
+    _isEditMode = widget.reminder != null && !widget.isReuse;
 
     final r = widget.reminder;
     _titleController = TextEditingController(
@@ -52,16 +56,19 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
     );
     _noteController = TextEditingController(text: r?.note ?? '');
 
-    _selectedTime = r?.time ?? '07:00';
+    final now = DateTime.now();
+    final currentHourStr = now.hour.toString().padLeft(2, '0');
+    final currentMinuteStr = now.minute.toString().padLeft(2, '0');
+    _selectedTime = r?.time ?? '$currentHourStr:$currentMinuteStr';
     _lat = r?.lat ?? SettingsService.mainLat;
     _lon = r?.lon ?? SettingsService.mainLon;
     _notifOn = r?.notifOn ?? true;
     _repeatDaily = r?.repeatDaily ?? false;
 
     if (r?.date != null && r!.date!.isNotEmpty) {
-      _selectedDate = DateTime.tryParse(r.date!) ?? DateTime.now();
+      _selectedDate = DateTime.tryParse(r.date!) ?? now;
     } else {
-      _selectedDate = DateTime.now();
+      _selectedDate = now;
     }
   }
 
@@ -171,6 +178,26 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
 
     final box = Hive.box<Reminder>('reminders');
     final savedDate = _repeatDaily ? null : _dateString;
+
+    // Validasi waktu lampau jika pengingat disetel untuk satu kali (bukan setiap hari)
+    if (!_repeatDaily) {
+      final now = DateTime.now();
+      final parts = _selectedTime.split(':');
+      final hour = parts.isNotEmpty ? (int.tryParse(parts[0]) ?? 0) : 0;
+      final minute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+      final scheduledDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        hour,
+        minute,
+      );
+
+      if (scheduledDateTime.isBefore(now)) {
+        _showSnackBar('Waktu pengingat tidak boleh di masa lalu.');
+        return;
+      }
+    }
 
     if (_isEditMode) {
       // 1. Mode Edit: perbarui object pengingat dan simpan

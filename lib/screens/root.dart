@@ -4,11 +4,12 @@ import 'package:flutter/material.dart';
 import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
 import 'favorites_screen.dart';
-import 'gear_screen.dart';
 import 'profile_screen.dart';
 import 'reminders_screen.dart';
 
 // Kerangka navigasi utama aplikasi dengan 5 tab (F8)
+// Catatan: Tab index 3 adalah placeholder Aktivitas (PBI-089).
+// Loddy yang akan mengganti urutan tab dan menghubungkan ActivityScreen di PBI-088.
 class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
 
@@ -67,7 +68,7 @@ class _RootScreenState extends State<RootScreen> {
   Widget build(BuildContext context) {
     final c = context.pc;
 
-    // Daftar 5 halaman tab aplikasi
+    // Daftar 5 halaman tab aplikasi (posisi tab ke-4 placeholder Aktivitas)
     final List<Widget> pages = [
       _buildPlaceholder(
         title: 'Halo, ${SettingsService.fullName}! 👋',
@@ -76,7 +77,11 @@ class _RootScreenState extends State<RootScreen> {
       ),
       const FavoritesScreen(),
       const RemindersScreen(),
-      const GearScreen(),
+      _buildPlaceholder(
+        title: 'Aktivitas',
+        icon: Icons.directions_run_rounded,
+        subtitle: 'Fitur analisis kelayakan aktivitas sedang disiapkan oleh Loddy.',
+      ),
       ProfileScreen(
         onNameChanged: () {
           setState(() {}); // Segarkan sapaan di Beranda jika nama diedit
@@ -120,9 +125,9 @@ class _RootScreenState extends State<RootScreen> {
                   label: 'Pengingat',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.backpack_outlined),
-                  activeIcon: Icon(Icons.backpack_rounded),
-                  label: 'Perlengkapan',
+                  icon: Icon(Icons.directions_run_outlined),
+                  activeIcon: Icon(Icons.directions_run_rounded),
+                  label: 'Aktivitas',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.person_outline_rounded),
