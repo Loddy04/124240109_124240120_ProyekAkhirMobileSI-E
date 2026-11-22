@@ -6,6 +6,7 @@ import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/advice_card.dart';
 import '../widgets/weather_card.dart';
+import 'detail_screen.dart';
 
 // Beranda (tab 1): ringkasan cuaca kota utama beserta Skor Payung (F2, F9).
 class HomeScreen extends StatefulWidget {
@@ -158,6 +159,20 @@ class _HomeScreenState extends State<HomeScreen> {
               data: data,
               unit: SettingsService.unit,
               label: 'Kota utama',
+              // Ketuk kartu: buka Detail Cuaca kota ini (passing data lewat constructor)
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DetailScreen(
+                      latitude: SettingsService.mainLat,
+                      longitude: SettingsService.mainLon,
+                      namaKota: SettingsService.mainCity,
+                      satuan: SettingsService.unit,
+                    ),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: AppTheme.gap),
             AdviceCard(data.advice),

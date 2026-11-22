@@ -16,12 +16,16 @@ class WeatherCard extends StatelessWidget {
   // Lencana kecil di pojok kanan atas, misalnya "Kota utama" (boleh kosong)
   final String? label;
 
+  // Aksi saat kartu diketuk, misalnya membuka Detail (boleh kosong)
+  final VoidCallback? onTap;
+
   const WeatherCard({
     super.key,
     required this.cityName,
     required this.data,
     this.unit = 'C',
     this.label,
+    this.onTap,
   });
 
   // Mengubah suhu Celsius ke satuan pilihan lalu membulatkannya, contoh: "29°"
@@ -37,6 +41,7 @@ class WeatherCard extends StatelessWidget {
     final putihRedup = Colors.white.withAlpha(204);
 
     return HeroCard(
+      onTap: onTap,
       // Stack: ikon cuaca besar ditempatkan di sisi kanan, di atas isi kartu
       child: Stack(
         children: [

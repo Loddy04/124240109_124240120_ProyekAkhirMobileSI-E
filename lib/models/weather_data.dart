@@ -177,6 +177,24 @@ class WeatherData {
     return Icons.cloud_rounded;
   }
 
+  // Alamat gambar ikon cuaca publik (tanpa kunci) untuk Image.network di Detail (F3).
+  // Pemetaan kode cuaca ke nama ikon ditulis di sini, sekali saja.
+  static String iconUrlOf(int code) =>
+      'https://openweathermap.org/img/wn/${_iconName(code)}@2x.png';
+
+  static String _iconName(int code) {
+    if (code == 0) return '01d'; // cerah
+    if (code == 1) return '02d'; // cerah berawan
+    if (code == 2) return '03d'; // berawan sebagian
+    if (code == 3) return '04d'; // berawan
+    if (code == 45 || code == 48) return '50d'; // kabut
+    if (code >= 51 && code <= 57) return '09d'; // gerimis
+    if (code >= 61 && code <= 67) return '10d'; // hujan
+    if (code >= 80 && code <= 82) return '09d'; // hujan lokal
+    if (code >= 95 && code <= 99) return '11d'; // badai petir
+    return '03d';
+  }
+
   // ---- Data turunan untuk Beranda dan Skor Payung ----
 
   // Indeks UV maksimum hari ini (elemen pertama daftar harian)
