@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 
 import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
+import 'activity_screen.dart';
 import 'favorites_screen.dart';
 import 'home_screen.dart';
-import 'gear_screen.dart';
 import 'profile_screen.dart';
 import 'reminders_screen.dart';
 
@@ -21,49 +21,6 @@ class _RootScreenState extends State<RootScreen> {
   // Indeks tab yang sedang aktif
   int _selectedIndex = 0;
 
-  // Widget pembantu untuk tampilan sementara (placeholder) tiap tab
-  Widget _buildPlaceholder({
-    required String title,
-    required IconData icon,
-    required String subtitle,
-  }) {
-    final c = context.pc;
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: Text(title),
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: GlassCard(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, size: 56, color: c.accent),
-                const SizedBox(height: 16),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: c.text,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  subtitle,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: c.textMuted),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final c = context.pc;
@@ -72,9 +29,9 @@ class _RootScreenState extends State<RootScreen> {
     final List<Widget> pages = [
       // Beranda cuaca (F2); nama dikirim agar sapaan ikut berubah saat diedit di Profil
       HomeScreen(namaLengkap: SettingsService.fullName),
-      const FavoritesScreen(),
+      const ActivityScreen(),
       const RemindersScreen(),
-      const GearScreen(),
+      const FavoritesScreen(),
       ProfileScreen(
         onNameChanged: () {
           setState(() {}); // Segarkan sapaan di Beranda jika nama diedit
@@ -108,9 +65,9 @@ class _RootScreenState extends State<RootScreen> {
                   label: 'Beranda',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.location_city_outlined),
-                  activeIcon: Icon(Icons.location_city_rounded),
-                  label: 'Kota',
+                  icon: Icon(Icons.event_available_outlined),
+                  activeIcon: Icon(Icons.event_available_rounded),
+                  label: 'Aktivitas',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.notifications_none_rounded),
@@ -118,9 +75,9 @@ class _RootScreenState extends State<RootScreen> {
                   label: 'Pengingat',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.backpack_outlined),
-                  activeIcon: Icon(Icons.backpack_rounded),
-                  label: 'Perlengkapan',
+                  icon: Icon(Icons.location_city_outlined),
+                  activeIcon: Icon(Icons.location_city_rounded),
+                  label: 'Kota',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.person_outline_rounded),
