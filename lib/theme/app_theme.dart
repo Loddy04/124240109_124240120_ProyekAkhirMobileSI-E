@@ -41,6 +41,7 @@ class PayunginColors extends ThemeExtension<PayunginColors> {
   final Color scoreWarn; // 30 sampai 59
   final Color scoreBad; // 60 ke atas
   final Color danger;
+  final Color favorite; // warna ikon favorit (hati)
 
   const PayunginColors({
     required this.bgTop,
@@ -64,6 +65,7 @@ class PayunginColors extends ThemeExtension<PayunginColors> {
     required this.scoreWarn,
     required this.scoreBad,
     required this.danger,
+    required this.favorite,
   });
 
   static const light = PayunginColors(
@@ -88,8 +90,11 @@ class PayunginColors extends ThemeExtension<PayunginColors> {
     scoreWarn: Color(0xFFC98A00),
     scoreBad: Color(0xFFD83A3F),
     danger: Color(0xFFD83A3F),
+    favorite: Color(0xFF2A62F0), // sama dengan aksen
   );
 
+  // Mode gelap: latar navy gelap awal; kartu, kartu utama, dan gradien dibuat lebih terang
+  // dan jenuh seperti mode terang. Teks terang di atas kartu (kontras >= 4,5:1).
   static const dark = PayunginColors(
     bgTop: Color(0xFF0A1530),
     bgMid: Color(0xFF0E1E42),
@@ -97,21 +102,22 @@ class PayunginColors extends ThemeExtension<PayunginColors> {
     blobA: Color(0xFF2F63E0),
     blobB: Color(0xFF1E49B8),
     blobOpacity: 0.5,
-    glass: Color(0x851E3262), // biru gelap 52%
-    glassBorder: Color(0x2E96BEFF),
-    glassShadow: Color(0x59000000),
-    heroA: Color(0xFF27479F),
-    heroB: Color(0xFF3A63C9),
-    accent: Color(0xFF6C97FF),
-    onAccent: Color(0xFF08142E),
-    text: Color(0xFFEAF1FF),
-    textMuted: Color(0xFFA8BBE3),
-    chipBg: Color(0x2E6C97FF),
-    chipText: Color(0xFFBCD1FF),
-    scoreGood: Color(0xFF3DD68C),
-    scoreWarn: Color(0xFFF5C542),
-    scoreBad: Color(0xFFFF6B6B),
-    danger: Color(0xFFFF6B6B),
+    glass: Color(0x338FB5FF), // biru muda 20%, agar kartu tetap biru dan sedikit lebih gelap
+    glassBorder: Color(0x4DFFFFFF), // tepi putih 30% agar batas kartu jelas
+    glassShadow: Color(0x40081A4A),
+    heroA: Color(0xFF2A5BDB), // sama dengan mode terang
+    heroB: Color(0xFF3A70EA),
+    accent: Color(0xFFE3EDFF), // biru sangat muda agar ikon dan tombol terbaca di atas biru
+    onAccent: Color(0xFF0F2E73),
+    text: Color(0xFFF5F8FF),
+    textMuted: Color(0xFFDCE7FF),
+    chipBg: Color(0x33FFFFFF),
+    chipText: Color(0xFFFFFFFF),
+    scoreGood: Color(0xFF7CF2B4),
+    scoreWarn: Color(0xFFFFD966),
+    scoreBad: Color(0xFFFFBABA),
+    danger: Color(0xFFFFBABA),
+    favorite: Color(0xFFFF8FB1), // pink agar ikon favorit menonjol di mode gelap
   );
 
   /// Warna kartu Skor Payung (F9): hijau, kuning, merah.
