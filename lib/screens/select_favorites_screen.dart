@@ -3,9 +3,13 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../api/api_service.dart';
 import '../models/favorite_city.dart';
+import '../models/city_result.dart';
 import '../models/popular_city.dart';
 import '../models/weather_data.dart';
+import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/city_search_field.dart';
+import 'detail_screen.dart';
 import 'favorites_screen.dart';
 
 // Layar Kelola Kota Favorit — Menampilkan grid kota favorit untuk slider Beranda
@@ -20,8 +24,10 @@ class SelectFavoritesScreen extends StatefulWidget {
 }
 
 class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
-  String _query = '';
-  final TextEditingController _searchCtrl = TextEditingController();
+  // Hasil pencarian (F4): null = tidak sedang mencari
+  List<CityResult>? _hasilCari;
+  bool _sedangMencari = false;
+  String? _errorCari;
 
   // Cache cuaca lokal untuk layar ini
   final Map<String, WeatherData?> _weatherCache = {};
@@ -33,10 +39,19 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
     _loadAllWeather();
   }
 
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
+  // Buka Detail Cuaca kota ini (dipakai semua kartu)
+  void _bukaDetail(String nama, double lat, double lon) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DetailScreen(
+          latitude: lat,
+          longitude: lon,
+          namaKota: nama,
+          satuan: SettingsService.unit,
+        ),
+      ),
+    );
   }
 
   String _cacheKey(String name, String province) =>
@@ -173,13 +188,13 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(6.0),
                       decoration: BoxDecoration(
-                        color: c.accent.withValues(alpha: 0.12),
+                        color: c.favorite.withValues(alpha: 0.16),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
                         Icons.favorite_rounded,
                         size: 18,
-                        color: c.accent,
+                        color: c.favorite,
                       ),
                     ),
                   ),
@@ -306,11 +321,22 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
             // Kota populer yang BELUM difavoritkan (akan muncul di section bawah)
             final nonFavorites = popularCities
                 .where((city) => !favNames.contains(city.name.toLowerCase()))
-                .where((city) =>
-                    _query.isEmpty ||
-                    city.name.toLowerCase().contains(_query.toLowerCase()) ||
-                    city.province.toLowerCase().contains(_query.toLowerCase()))
                 .toList();
+
+            // Hasil pencarian (F4) yang belum difavoritkan, ditampilkan dengan baris yang sama
+            final hasilCari = _hasilCari;
+            final mencari = _sedangMencari || _errorCari != null || hasilCari != null;
+            final daftar = hasilCari != null
+                ? hasilCari
+                    .where((k) => !favNames.contains(k.name.toLowerCase()))
+                    .map((k) => PopularCity(
+                          name: k.name,
+                          province: k.province,
+                          lat: k.latitude,
+                          lon: k.longitude,
+                        ))
+                    .toList()
+                : nonFavorites;
 
             return CustomScrollView(
               slivers: [
@@ -357,7 +383,7 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                     child: Row(
                       children: [
-                        Icon(Icons.favorite_rounded, size: 16, color: c.accent),
+                        Icon(Icons.favorite_rounded, size: 16, color: c.favorite),
                         const SizedBox(width: 6),
                         Text(
                           'KOTA FAVORIT SAYA',
@@ -410,11 +436,15 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
                           final city = favBox.getAt(index);
                           if (city == null) return const SizedBox.shrink();
 
-                          return _buildFavoriteGridCard(
-                            context,
-                            city: city,
-                            index: index,
-                            box: favBox,
+                          // Ketuk kartu favorit membuka Detail (tombol hati tetap menghapus)
+                          return GestureDetector(
+                            onTap: () => _bukaDetail(city.name, city.lat, city.lon),
+                            child: _buildFavoriteGridCard(
+                              context,
+                              city: city,
+                              index: index,
+                              box: favBox,
+                            ),
                           );
                         },
                         childCount: favBox.length,
@@ -433,7 +463,7 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
                             Icon(
                               Icons.favorite_border_rounded,
                               size: 40,
-                              color: c.accent.withValues(alpha: 0.6),
+                              color: c.favorite.withValues(alpha: 0.7),
                             ),
                             const SizedBox(height: 8),
                             Text(
@@ -473,7 +503,7 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
                         Icon(Icons.add_location_alt_rounded, size: 16, color: c.textMuted),
                         const SizedBox(width: 6),
                         Text(
-                          'PILIH KOTA LAINNYA',
+                          mencari ? 'HASIL PENCARIAN' : 'PILIH KOTA LAINNYA',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -483,7 +513,7 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          '(${nonFavorites.length} tersedia)',
+                          '(${daftar.length} tersedia)',
                           style: TextStyle(fontSize: 11, color: c.textMuted),
                         ),
                       ],
@@ -491,54 +521,71 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
                   ),
                 ),
 
-                // Search bar untuk mencari kota yang belum difavoritkan
+                // Kolom cari: logika F4 (ApiService.searchCity, hanya kota Indonesia)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                    child: GlassCard(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      child: Row(
-                        children: [
-                          Icon(Icons.search_rounded, color: c.textMuted, size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: _searchCtrl,
-                              onChanged: (v) => setState(() => _query = v),
-                              style: TextStyle(color: c.text, fontSize: 13),
-                              decoration: InputDecoration(
-                                hintText: 'Cari kota untuk ditambahkan...',
-                                hintStyle: TextStyle(color: c.textMuted, fontSize: 13),
-                                border: InputBorder.none,
-                                isDense: true,
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                            ),
-                          ),
-                          if (_query.isNotEmpty)
-                            GestureDetector(
-                              onTap: () {
-                                _searchCtrl.clear();
-                                setState(() => _query = '');
-                              },
-                              child: Icon(Icons.close_rounded, color: c.textMuted, size: 16),
-                            ),
-                        ],
-                      ),
+                    child: CitySearchField(
+                      hintText: 'Cari kota untuk ditambahkan...',
+                      onSearching: () => setState(() {
+                        _sedangMencari = true;
+                        _errorCari = null;
+                      }),
+                      onResult: (hasil) {
+                        setState(() {
+                          _hasilCari = hasil;
+                          _sedangMencari = false;
+                        });
+                        // Muat cuaca tiap hasil agar barisnya terisi
+                        for (final k in hasil) {
+                          _loadWeatherForCity(k.name, k.province, k.latitude, k.longitude);
+                        }
+                      },
+                      onError: (pesan) => setState(() {
+                        _sedangMencari = false;
+                        _errorCari = pesan;
+                      }),
+                      onClear: () => setState(() {
+                        _hasilCari = null;
+                        _sedangMencari = false;
+                        _errorCari = null;
+                      }),
                     ),
                   ),
                 ),
 
                 // List kota yang belum difavoritkan
-                if (nonFavorites.isEmpty)
+                if (_sedangMencari)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  )
+                else if (_errorCari != null)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
                       child: Center(
                         child: Text(
-                          _query.isEmpty
+                          _errorCari!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 13, color: c.textMuted),
+                        ),
+                      ),
+                    ),
+                  )
+                else if (daftar.isEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Center(
+                        child: Text(
+                          hasilCari == null
                               ? 'Semua kota sudah ada di favorit Anda!'
-                              : 'Kota "$_query" tidak ditemukan.',
+                              : hasilCari.isEmpty
+                                  ? 'Kota tidak ditemukan di Indonesia.'
+                                  : 'Semua hasil sudah ada di favorit Anda.',
                           style: TextStyle(fontSize: 13, color: c.textMuted),
                         ),
                       ),
@@ -548,7 +595,7 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
                   SliverList(
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
-                        final city = nonFavorites[index];
+                        final city = daftar[index];
                         final key = _cacheKey(city.name, city.province);
                         final weather = _weatherCache[key] ?? WeatherCache.get(key);
 
@@ -559,6 +606,8 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                           child: GlassCard(
+                            // Ketuk baris membuka Detail (tombol + tetap menambah favorit)
+                            onTap: () => _bukaDetail(city.name, city.lat, city.lon),
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                             child: Row(
                               children: [
@@ -684,7 +733,7 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
                           ),
                         );
                       },
-                      childCount: nonFavorites.length,
+                      childCount: daftar.length,
                     ),
                   ),
 
