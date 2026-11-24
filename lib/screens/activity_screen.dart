@@ -44,6 +44,9 @@ class _ActivityScreenState extends State<ActivityScreen> {
   Activity? _aktivitasHasil;
   String? _keterangan;
   bool _hariJauh = false;
+
+  // true bila hasil dihitung dari data cache saat offline (F14)
+  bool _dariCache = false;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -128,6 +131,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
         _aktivitasHasil = _aktivitas;
         _keterangan = '${_labelHari(_hari)} · ${kota.nama}';
         _hariJauh = _hari >= 3;
+        _dariCache = data.isFromCache;
         _isLoading = false;
       });
     } catch (e) {
@@ -285,11 +289,33 @@ class _ActivityScreenState extends State<ActivityScreen> {
       return const SizedBox.shrink();
     }
 
-    return ActivityCard(
-      aktivitas: aktivitas,
-      hasil: hasil,
-      keterangan: _keterangan ?? '',
-      catatanJauh: _hariJauh,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ActivityCard(
+          aktivitas: aktivitas,
+          hasil: hasil,
+          keterangan: _keterangan ?? '',
+          catatanJauh: _hariJauh,
+        ),
+        // Penanda bila penilaian memakai data terakhir yang tersimpan (offline)
+        if (_dariCache)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Row(
+              children: [
+                Icon(Icons.cloud_off_rounded, size: 16, color: c.textMuted),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Memakai data terakhir yang tersimpan (offline)',
+                    style: TextStyle(color: c.textMuted, fontSize: 12.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

@@ -34,6 +34,23 @@ class WeatherCard extends StatelessWidget {
     return '${nilai.round()}°';
   }
 
+  static const List<String> _bulan = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+  ];
+
+  // Contoh: "Data terakhir diperbarui 14.05 (offline)"; bila bukan hari ini: "22 Nov 14.05"
+  String _teksOffline() {
+    final waktu = data.cachedAt;
+    if (waktu == null) return 'Data terakhir (offline)';
+
+    final now = DateTime.now();
+    final jam = '${waktu.hour.toString().padLeft(2, '0')}.${waktu.minute.toString().padLeft(2, '0')}';
+    final hariIni = waktu.year == now.year && waktu.month == now.month && waktu.day == now.day;
+    final kapan = hariIni ? jam : '${waktu.day} ${_bulan[waktu.month - 1]} $jam';
+    return 'Data terakhir diperbarui $kapan (offline)';
+  }
+
   @override
   Widget build(BuildContext context) {
     // Teks di atas HeroCard (latar biru) selalu putih
@@ -123,6 +140,23 @@ class WeatherCard extends StatelessWidget {
                   _InfoBox(label: 'Hujan', value: '${data.maxRainChance}%'),
                 ],
               ),
+              // Penanda data dari cache saat offline (F14)
+              if (data.isFromCache) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Icon(Icons.cloud_off_rounded, size: 14, color: putihRedup),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _teksOffline(),
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: putihRedup, fontSize: 11.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ],

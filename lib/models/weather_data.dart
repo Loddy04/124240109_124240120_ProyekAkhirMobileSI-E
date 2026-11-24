@@ -41,6 +41,9 @@ class WeatherData {
   // true bila data berasal dari cache saat offline (F14)
   final bool isFromCache;
 
+  // Waktu data cache itu terakhir diperbarui (hanya terisi bila isFromCache)
+  final DateTime? cachedAt;
+
   // Generative constructor utama
   WeatherData({
     required this._temperature,
@@ -66,6 +69,7 @@ class WeatherData {
     required this.dailySunset,
     required this.dailyPrecipSum,
     this.isFromCache = false,
+    this.cachedAt,
   });
 
   // Redirecting constructor: data kosong dengan nilai awal, lewat constructor utama
@@ -100,6 +104,7 @@ class WeatherData {
   factory WeatherData.fromJson(
     Map<String, dynamic> json, {
     bool fromCache = false,
+    DateTime? cachedAt,
   }) {
     // "current" wajib ada; bila tidak ada, error ditangkap oleh pemanggil
     final current = json['current'] as Map<String, dynamic>;
@@ -130,6 +135,7 @@ class WeatherData {
       dailySunset: _toStrings(daily['sunset']),
       dailyPrecipSum: _toDoubles(daily['precipitation_sum']),
       isFromCache: fromCache,
+      cachedAt: cachedAt,
     );
   }
 

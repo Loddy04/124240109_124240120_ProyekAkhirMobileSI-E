@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/city_result.dart';
 import '../models/weather_data.dart';
+import '../services/cache_service.dart';
 
 // Layanan pengambilan data dari internet (Open-Meteo, tanpa API key).
 // Semua method static agar bisa dipanggil tanpa membuat objek: ApiService.getWeather(...)
@@ -25,6 +26,9 @@ class ApiService {
       'timezone': 'auto',
     });
 
+    // Kunci cache kota ini (F14)
+    final key = CacheService.kunci(lat, lon);
+
     try {
       // Fetch: batas waktu 10 detik agar loading tidak menggantung
       final response = await http.get(uri).timeout(const Duration(seconds: 10));
@@ -35,9 +39,25 @@ class ApiService {
 
       // Parse: teks JSON -> Map -> objek WeatherData
       final json = jsonDecode(response.body) as Map<String, dynamic>;
-      return WeatherData.fromJson(json);
+      final data = WeatherData.fromJson(json);
+
+      // Berhasil online: simpan sebagai cache untuk dipakai saat offline
+      await CacheService.save(key, response.body);
+      return data;
     } catch (e) {
-      // F14 (Sprint 4): di sini nanti membaca cache terakhir sebelum melempar error
+      // Gagal (offline, timeout, server error): pakai cache terakhir bila ada
+      final cache = CacheService.read(key);
+      if (cache != null) {
+        try {
+          return WeatherData.fromJson(
+            jsonDecode(cache) as Map<String, dynamic>,
+            fromCache: true,
+            cachedAt: CacheService.readTime(key),
+          );
+        } catch (_) {
+          // Cache rusak: lanjut ke error di bawah
+        }
+      }
       throw Exception('Gagal mengambil data cuaca: $e');
     }
   }
