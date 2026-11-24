@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 
 import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
+import 'activity_screen.dart';
 import 'favorites_screen.dart';
+import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'reminders_screen.dart';
 
@@ -68,20 +70,12 @@ class _RootScreenState extends State<RootScreen> {
   Widget build(BuildContext context) {
     final c = context.pc;
 
-    // Daftar 5 halaman tab aplikasi (posisi tab ke-4 placeholder Aktivitas)
+    // Daftar 5 halaman tab aplikasi
     final List<Widget> pages = [
-      _buildPlaceholder(
-        title: 'Halo, ${SettingsService.fullName}! 👋',
-        icon: Icons.cloud_outlined,
-        subtitle: 'Selamat datang di Payungin. Pantau Skor Payung hari ini.',
-      ),
+      const HomeScreen(),
       const FavoritesScreen(),
       const RemindersScreen(),
-      _buildPlaceholder(
-        title: 'Aktivitas',
-        icon: Icons.directions_run_rounded,
-        subtitle: 'Fitur analisis kelayakan aktivitas sedang disiapkan oleh Loddy.',
-      ),
+      const ActivityScreen(),
       ProfileScreen(
         onNameChanged: () {
           setState(() {}); // Segarkan sapaan di Beranda jika nama diedit

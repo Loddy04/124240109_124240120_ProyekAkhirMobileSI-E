@@ -535,7 +535,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
                       onPressed: _saveReminder,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: c.accent,
-                        foregroundColor: Colors.white,
+                        foregroundColor: Theme.of(context).brightness == Brightness.dark ? c.onAccent : Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(AppTheme.radiusButton),
