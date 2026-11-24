@@ -3,9 +3,13 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../api/api_service.dart';
 import '../models/favorite_city.dart';
+import '../models/city_result.dart';
 import '../models/popular_city.dart';
 import '../models/weather_data.dart';
+import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/city_search_field.dart';
+import 'detail_screen.dart';
 import 'select_favorites_screen.dart';
 
 // Cache statis ringan dalam memori agar data cuaca yang sudah dimuat
@@ -68,8 +72,10 @@ class FavoritesScreen extends StatefulWidget {
 }
 
 class _FavoritesScreenState extends State<FavoritesScreen> {
-  final TextEditingController _searchCtrl = TextEditingController();
-  String _query = '';
+  // Hasil pencarian (F4): null = tidak sedang mencari
+  List<CityResult>? _hasilCari;
+  bool _sedangMencari = false;
+  String? _errorCari;
 
   // Cache cuaca per kota: key = "name|province"
   final Map<String, WeatherData?> _weatherCache = {};
@@ -84,10 +90,19 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     _preloadPopularWeather();
   }
 
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
+  // Buka Detail Cuaca kota ini (dipakai semua kartu)
+  void _bukaDetail(PopularCity city) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DetailScreen(
+          latitude: city.lat,
+          longitude: city.lon,
+          namaKota: city.name,
+          satuan: SettingsService.unit,
+        ),
+      ),
+    );
   }
 
   String _cacheKey(String name, String province) =>
@@ -143,7 +158,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: isDark
-            ? const [Color(0xFF1E2D4A), Color(0xFF131D33)]
+            ? const [Color(0xFF345A9A), Color(0xFF2A4A86)]
             : const [Color(0xFF3B68B5), Color(0xFF285098)],
       );
     }
@@ -156,7 +171,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: isDark
-            ? const [Color(0xFF104A8E), Color(0xFF0D3261), Color(0xFF092040)]
+            ? const [Color(0xFF2B72D4), Color(0xFF2467C4), Color(0xFF1B4F9E)]
             : const [Color(0xFF2180E8), Color(0xFF1E70CF), Color(0xFF3892F3)],
       );
     }
@@ -167,7 +182,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: isDark
-            ? const [Color(0xFF1E3A5F), Color(0xFF162A45), Color(0xFF0F1D30)]
+            ? const [Color(0xFF3F79BE), Color(0xFF336AAB), Color(0xFF285792)]
             : const [Color(0xFF3A7BC8), Color(0xFF4E8CD4), Color(0xFF679EE0)],
       );
     }
@@ -178,7 +193,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: isDark
-            ? const [Color(0xFF2C394B), Color(0xFF1F2837), Color(0xFF151C26)]
+            ? const [Color(0xFF5A7391), Color(0xFF4D647F), Color(0xFF405670)]
             : const [Color(0xFF506882), Color(0xFF627B97), Color(0xFF758EAA)],
       );
     }
@@ -189,7 +204,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: isDark
-            ? const [Color(0xFF1A3254), Color(0xFF13243D), Color(0xFF0E1A2C)]
+            ? const [Color(0xFF3A6EA5), Color(0xFF2F5C8E), Color(0xFF254B78)]
             : const [Color(0xFF2B5B84), Color(0xFF3A71A0), Color(0xFF4A84B3)],
       );
     }
@@ -200,7 +215,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: isDark
-            ? const [Color(0xFF2B1B47), Color(0xFF1C1130), Color(0xFF120B1F)]
+            ? const [Color(0xFF6A4DA8), Color(0xFF573C8E), Color(0xFF453075)]
             : const [Color(0xFF4A346E), Color(0xFF583F83), Color(0xFF694C9C)],
       );
     }
@@ -209,7 +224,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: isDark
-          ? const [Color(0xFF1B2838), Color(0xFF111A24)]
+          ? const [Color(0xFF3F6AA0), Color(0xFF345A8C)]
           : const [Color(0xFF385573), Color(0xFF4A6B8E)],
     );
   }
@@ -239,15 +254,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
       child: GestureDetector(
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Membuka detail cuaca ${city.name}.'),
-              duration: const Duration(seconds: 1),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        },
+        onTap: () => _bukaDetail(city),
         child: Container(
           decoration: BoxDecoration(
             gradient: gradient,
@@ -508,11 +515,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         builder: (context, favBox, _) {
           // Kota populer sesuai query
           final allPopular = _showAll ? popularCities : popularCities.take(10).toList();
-          final filtered = _query.isEmpty
-              ? allPopular
-              : popularCities.where((city) =>
-                  city.name.toLowerCase().contains(_query.toLowerCase()) ||
-                  city.province.toLowerCase().contains(_query.toLowerCase())).toList();
+          // true bila sedang atau sudah mencari: daftar populer diganti hasil pencarian
+          final hasilCari = _hasilCari;
+          final mencari = _sedangMencari || _errorCari != null || hasilCari != null;
 
           return CustomScrollView(
             slivers: [
@@ -537,7 +542,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                       icon: Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          Icon(Icons.favorite_rounded, color: c.accent, size: 26),
+                          Icon(Icons.favorite_rounded, color: c.favorite, size: 26),
                           if (favBox.isNotEmpty)
                             Positioned(
                               top: -4,
@@ -555,8 +560,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                 child: Text(
                                   '${favBox.length}',
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: c.onAccent,
                                     fontSize: 9,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -578,40 +583,35 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                 ],
               ),
 
-              // ── Search bar ────────────────────────────────────────────────
+              // Kolom cari: logika F4 (ApiService.searchCity, hanya kota Indonesia)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                  child: GlassCard(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    child: Row(
-                      children: [
-                        Icon(Icons.search_rounded, color: c.textMuted, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: _searchCtrl,
-                            onChanged: (v) => setState(() => _query = v),
-                            style: TextStyle(color: c.text, fontSize: 14),
-                            decoration: InputDecoration(
-                              hintText: 'Cari kota di Indonesia...',
-                              hintStyle: TextStyle(color: c.textMuted, fontSize: 14),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ),
-                        ),
-                        if (_query.isNotEmpty)
-                          GestureDetector(
-                            onTap: () {
-                              _searchCtrl.clear();
-                              setState(() => _query = '');
-                            },
-                            child: Icon(Icons.close_rounded, color: c.textMuted, size: 18),
-                          ),
-                      ],
-                    ),
+                  child: CitySearchField(
+                    hintText: 'Cari kota di Indonesia...',
+                    onSearching: () => setState(() {
+                      _sedangMencari = true;
+                      _errorCari = null;
+                    }),
+                    onResult: (hasil) {
+                      setState(() {
+                        _hasilCari = hasil;
+                        _sedangMencari = false;
+                      });
+                      // Muat cuaca tiap hasil agar kartunya terisi
+                      for (final k in hasil) {
+                        _loadWeather(k.name, k.province, k.latitude, k.longitude);
+                      }
+                    },
+                    onError: (pesan) => setState(() {
+                      _sedangMencari = false;
+                      _errorCari = pesan;
+                    }),
+                    onClear: () => setState(() {
+                      _hasilCari = null;
+                      _sedangMencari = false;
+                      _errorCari = null;
+                    }),
                   ),
                 ),
               ),
@@ -625,7 +625,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                       Icon(Icons.explore_rounded, size: 15, color: c.accent),
                       const SizedBox(width: 6),
                       Text(
-                        _query.isEmpty ? 'KOTA POPULER' : 'HASIL PENCARIAN',
+                        mencari ? 'HASIL PENCARIAN' : 'KOTA POPULER',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -638,14 +638,34 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                 ),
               ),
 
-              // ── Daftar Kartu Cuaca Representatif ──────────────────────────
-              if (filtered.isEmpty)
+              // ── Daftar kartu cuaca: kota populer atau hasil pencarian ─────
+              if (_sedangMencari)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                )
+              else if (_errorCari != null)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(32),
                     child: Center(
                       child: Text(
-                        'Kota "$_query" tidak ditemukan.',
+                        _errorCari!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: c.textMuted, fontSize: 14),
+                      ),
+                    ),
+                  ),
+                )
+              else if (hasilCari != null && hasilCari.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Center(
+                      child: Text(
+                        'Kota tidak ditemukan di Indonesia.',
                         style: TextStyle(color: c.textMuted, fontSize: 14),
                       ),
                     ),
@@ -655,15 +675,27 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                 SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
-                      final city = filtered[index];
+                      // Kartu yang sama untuk kota populer dan hasil pencarian
+                      final PopularCity city;
+                      if (hasilCari != null) {
+                        final k = hasilCari[index];
+                        city = PopularCity(
+                          name: k.name,
+                          province: k.province,
+                          lat: k.latitude,
+                          lon: k.longitude,
+                        );
+                      } else {
+                        city = allPopular[index];
+                      }
                       return _buildWeatherCard(city: city);
                     },
-                    childCount: filtered.length,
+                    childCount: hasilCari?.length ?? allPopular.length,
                   ),
                 ),
 
               // ── Tombol Lihat Lebih Banyak / Sembunyikan ───────────────────
-              if (_query.isEmpty)
+              if (!mencari)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
