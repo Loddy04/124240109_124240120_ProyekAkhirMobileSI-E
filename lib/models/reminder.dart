@@ -36,6 +36,11 @@ class Reminder extends HiveObject {
   @HiveField(8, defaultValue: null)
   String? date;
 
+  // Field tipe/jenis pengingat (PBI-082)
+  // 'umum' (default) atau jenis aktivitas: 'jemur', 'motor', 'mobil', 'outdoor'
+  @HiveField(9, defaultValue: 'umum')
+  String type;
+
   Reminder({
     required this.title,
     required this.cityName,
@@ -46,12 +51,23 @@ class Reminder extends HiveObject {
     this.notifOn = false,
     this.repeatDaily = false,
     this.date,
+    this.type = 'umum',
   });
 
   // Helper: kembalikan DateTime tanggal pengingat (atau null jika tidak diisi)
   DateTime? get dateTime {
     if (date == null || date!.isEmpty) return null;
     return DateTime.tryParse(date!);
+  }
+
+  // Helper: kembalikan DateTime lengkap (tanggal + jam:menit) pengingat
+  DateTime? get scheduledDateTime {
+    final baseDate = dateTime;
+    if (baseDate == null) return null;
+    final parts = time.split(':');
+    final hour = parts.isNotEmpty ? (int.tryParse(parts[0]) ?? 0) : 0;
+    final minute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+    return DateTime(baseDate.year, baseDate.month, baseDate.day, hour, minute);
   }
 }
 

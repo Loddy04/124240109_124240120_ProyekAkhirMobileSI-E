@@ -10,6 +10,8 @@ import 'profile_screen.dart';
 import 'reminders_screen.dart';
 
 // Kerangka navigasi utama aplikasi dengan 5 tab (F8)
+// Catatan: Tab index 3 adalah placeholder Aktivitas (PBI-089).
+// Loddy yang akan mengganti urutan tab dan menghubungkan ActivityScreen di PBI-088.
 class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
 
@@ -25,7 +27,7 @@ class _RootScreenState extends State<RootScreen> {
   Widget build(BuildContext context) {
     final c = context.pc;
 
-    // Daftar 5 halaman tab aplikasi
+    // Daftar 5 halaman tab aplikasi (posisi tab ke-4 placeholder Aktivitas)
     final List<Widget> pages = [
       // Beranda cuaca (F2); nama dikirim agar sapaan ikut berubah saat diedit di Profil
       HomeScreen(namaLengkap: SettingsService.fullName),

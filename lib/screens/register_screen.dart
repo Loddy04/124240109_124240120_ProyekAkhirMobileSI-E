@@ -1,12 +1,12 @@
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/favorite_city.dart';
-import '../models/gear_item.dart';
 import '../models/reminder.dart';
 import '../services/notification_service.dart';
 import '../services/settings_service.dart';
@@ -102,13 +102,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final prefs = await SharedPreferences.getInstance();
 
       // 1. Batalkan seluruh jadwal notifikasi dari akun lama
-      await NotificationService().cancelAll();
+      // (tidak didukung di web, skip jika platform web)
+      if (!kIsWeb) {
+        await NotificationService().cancelAll();
+      }
 
       // 2. Bersihkan seluruh data riwayat aktivitas (Hive boxes)
       // agar akun baru memulai dalam kondisi bersih tanpa riwayat akun sebelumnya
       await Hive.box<Reminder>('reminders').clear();
       await Hive.box<FavoriteCity>('favorites').clear();
-      await Hive.box<GearItem>('gear').clear();
       await Hive.box<String>('weather_cache').clear();
 
       // 3. Bersihkan foto profil dan reset preferensi pengaturan ke default
@@ -139,7 +141,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       // Kembalikan username yang didaftarkan ke layar login
       Navigator.pop(context, username);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       _showErrorSnackBar('Terjadi kesalahan saat menyimpan akun. Coba lagi.');
     } finally {
