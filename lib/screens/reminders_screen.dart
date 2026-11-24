@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -17,6 +18,7 @@ class RemindersScreen extends StatefulWidget {
 
 class _RemindersScreenState extends State<RemindersScreen> {
   bool _permAsked = false;
+  Timer? _ticker;
 
   @override
   void initState() {
@@ -25,6 +27,18 @@ class _RemindersScreenState extends State<RemindersScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _requestPermissionIfNeeded();
     });
+
+    // Timer real-time tiap 10 detik agar status pengingat otomatis berpindah
+    // ke riwayat saat jam terlewat tanpa perlu restart aplikasi
+    _ticker = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
   }
 
   Future<void> _requestPermissionIfNeeded() async {
