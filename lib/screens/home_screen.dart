@@ -1,31 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../api/api_service.dart';
 import '../models/favorite_city.dart';
 import '../models/weather_data.dart';
+import '../services/location_service.dart';
 import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/advice_card.dart';
 import '../widgets/weather_card.dart';
 import 'detail_screen.dart';
 
-// Satu halaman pada slider Beranda: kota Beranda atau salah satu kota favorit
+// Satu halaman pada slider Beranda: kota Beranda, favorit, atau kartu sementara Lokasi Saya
 class _KotaBeranda {
   final String nama;
   final double lat;
   final double lon;
   final bool utama;
 
+  // true untuk kartu Lokasi Saya yang tidak disimpan dan hilang saat Beranda dibuat ulang
+  final bool sementara;
+
   const _KotaBeranda({
     required this.nama,
     required this.lat,
     required this.lon,
     this.utama = false,
+    this.sementara = false,
   });
 
   // Pengenal untuk menyimpan cuaca kota ini
   String get kunci => '$lat,$lon';
+
+  // Koordinat singkat untuk lencana kartu sementara
+  String get koordinatTeks => '${lat.toStringAsFixed(3)}, ${lon.toStringAsFixed(3)}';
 }
 
 // Beranda (tab 1): kartu cuaca yang bisa digeser antar kota (kota Beranda dan favorit)
@@ -45,6 +54,10 @@ class _HomeScreenState extends State<HomeScreen> {
   late final List<_KotaBeranda> _kota;
   late final PageController _controller;
   int _halaman = 0;
+
+  // Lokasi Saya: sedang mencari posisi, dan apakah dialog privasi sudah ditunjukkan
+  bool _mencariLokasi = false;
+  bool _privasiDitunjukkan = false;
 
   // Keadaan tiap kota: sudah dimuat, sedang dimuat, atau gagal
   final Map<String, WeatherData> _cuaca = {};
@@ -152,6 +165,181 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ---- Lokasi Saya (F15, LBS) ----
+
+  void _pesan(String teks) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(teks)));
+  }
+
+  // Dialog privasi sebelum meminta izin; true bila pengguna melanjutkan
+  Future<bool> _setujuPrivasi() async {
+    if (_privasiDitunjukkan) return true;
+    final lanjut = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Izin lokasi'),
+        content: const Text(
+          'Lokasi hanya dipakai untuk mengambil cuaca dari Open-Meteo dan tidak disimpan.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Lanjut'),
+          ),
+        ],
+      ),
+    );
+    if (lanjut == true) _privasiDitunjukkan = true;
+    return lanjut == true;
+  }
+
+  // Dialog dengan tombol menuju pengaturan (GPS mati atau izin ditolak permanen)
+  Future<void> _dialogPengaturan({
+    required String judul,
+    required String isi,
+    required String tombol,
+    required Future<bool> Function() buka,
+  }) {
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(judul),
+        content: Text(isi),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              buka();
+            },
+            child: Text(tombol),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Tombol Lokasi Saya: izin, ambil posisi, lalu tampilkan kartunya di slider
+  Future<void> _lokasiSaya() async {
+    if (!await _setujuPrivasi() || !mounted) return;
+
+    setState(() => _mencariLokasi = true);
+    try {
+      final posisi = await LocationService.getCurrent();
+      if (!mounted) return;
+      _tampilkanLokasi(posisi.latitude, posisi.longitude);
+    } on LocationException catch (e) {
+      if (!mounted) return;
+      switch (e.type) {
+        case LocationError.serviceOff:
+          await _dialogPengaturan(
+            judul: 'Layanan lokasi mati',
+            isi: 'Nyalakan GPS agar cuaca di posisimu bisa ditampilkan.',
+            tombol: 'Buka pengaturan lokasi',
+            buka: Geolocator.openLocationSettings,
+          );
+        case LocationError.denied:
+          _pesan('Izin lokasi ditolak. Kamu bisa mencobanya lagi.');
+        case LocationError.deniedForever:
+          await _dialogPengaturan(
+            judul: 'Izin lokasi ditolak permanen',
+            isi: 'Izinkan lokasi lewat pengaturan aplikasi agar fitur ini bisa dipakai.',
+            tombol: 'Buka pengaturan aplikasi',
+            buka: Geolocator.openAppSettings,
+          );
+      }
+    } catch (e) {
+      if (mounted) _pesan('Tidak bisa mengambil lokasi. Coba lagi.');
+    } finally {
+      if (mounted) setState(() => _mencariLokasi = false);
+    }
+  }
+
+  // Bila posisi dekat kota di slider: geser ke kartu itu. Bila tidak: kartu sementara di depan.
+  void _tampilkanLokasi(double lat, double lon) {
+    // Buang kartu sementara lama, lalu cari kota di slider yang cukup dekat
+    final tetap = _kota.where((k) => !k.sementara).toList();
+    final i = LocationService.indeksTerdekat(
+      lat,
+      lon,
+      [for (final k in tetap) (lat: k.lat, lon: k.lon)],
+    );
+
+    setState(() {
+      _kota
+        ..clear()
+        ..addAll(tetap);
+      if (i == null) {
+        _kota.insert(
+          0,
+          _KotaBeranda(nama: 'Lokasi Saya', lat: lat, lon: lon, sementara: true),
+        );
+      }
+      _halaman = i ?? 0;
+    });
+
+    final tujuan = i ?? 0;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_controller.hasClients) return;
+      if (i != null) {
+        _controller.animateToPage(
+          tujuan,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+      } else {
+        _controller.jumpToPage(0);
+      }
+    });
+
+    _muat(tujuan);
+    _muat(tujuan + 1);
+    _pesan(i != null
+        ? 'Kamu berada di dekat ${tetap[i].nama}.'
+        : 'Menampilkan cuaca di lokasimu.');
+  }
+
+  // Tombol kecil di bawah sapaan
+  Widget _tombolLokasi(PayunginColors c) {
+    final radius = BorderRadius.circular(AppTheme.radiusChip + 6);
+    return InkWell(
+      borderRadius: radius,
+      onTap: _mencariLokasi ? null : _lokasiSaya,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(color: c.chipBg, borderRadius: radius),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _mencariLokasi
+                ? SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: c.chipText),
+                  )
+                : Icon(Icons.my_location_rounded, size: 18, color: c.chipText),
+            const SizedBox(width: 8),
+            Text(
+              _mencariLokasi ? 'Mencari lokasi...' : 'Lokasi Saya',
+              style: TextStyle(
+                color: c.chipText,
+                fontWeight: FontWeight.w700,
+                fontSize: 13.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Contoh hasil: "Kamis, 5 November"
   String _tanggalHariIni() {
     final now = DateTime.now();
@@ -197,6 +385,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
+                      const SizedBox(height: 10),
+                      _tombolLokasi(c),
                     ],
                   ),
                 ),
@@ -274,7 +464,7 @@ class _HomeScreenState extends State<HomeScreen> {
         cityName: kota.nama,
         data: data,
         unit: SettingsService.unit,
-        label: kota.utama ? 'Kota utama' : null,
+        label: kota.sementara ? kota.koordinatTeks : (kota.utama ? 'Kota utama' : null),
         onTap: () => _bukaDetail(kota),
       );
     }
