@@ -17,6 +17,14 @@ class AddReminderScreen extends StatefulWidget {
   // Flag untuk menandai pemakaian kembali (Pakai lagi)
   final bool isReuse;
 
+  // Isian awal dari hasil Aktivitas (PBI-087); semuanya opsional
+  final String? jenisAwal; // 'jemur', 'motor', 'mobil', atau 'outdoor'
+  final String? jamAwal; // format "HH:mm"
+  final DateTime? tanggalAwal;
+  final double? latAwal;
+  final double? lonAwal;
+  final String? catatanAwal;
+
   const AddReminderScreen({
     super.key,
     this.index,
@@ -24,6 +32,12 @@ class AddReminderScreen extends StatefulWidget {
     this.judulAwal,
     this.kotaAwal,
     this.isReuse = false,
+    this.jenisAwal,
+    this.jamAwal,
+    this.tanggalAwal,
+    this.latAwal,
+    this.lonAwal,
+    this.catatanAwal,
   });
 
 
@@ -54,21 +68,21 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
     _titleController = TextEditingController(
       text: r?.title ?? widget.judulAwal ?? '',
     );
-    _noteController = TextEditingController(text: r?.note ?? '');
+    _noteController = TextEditingController(text: r?.note ?? widget.catatanAwal ?? '');
 
     final now = DateTime.now();
     final currentHourStr = now.hour.toString().padLeft(2, '0');
     final currentMinuteStr = now.minute.toString().padLeft(2, '0');
-    _selectedTime = r?.time ?? '$currentHourStr:$currentMinuteStr';
-    _lat = r?.lat ?? SettingsService.mainLat;
-    _lon = r?.lon ?? SettingsService.mainLon;
+    _selectedTime = r?.time ?? widget.jamAwal ?? '$currentHourStr:$currentMinuteStr';
+    _lat = r?.lat ?? widget.latAwal ?? SettingsService.mainLat;
+    _lon = r?.lon ?? widget.lonAwal ?? SettingsService.mainLon;
     _notifOn = r?.notifOn ?? true;
     _repeatDaily = r?.repeatDaily ?? false;
 
     if (r?.date != null && r!.date!.isNotEmpty) {
       _selectedDate = DateTime.tryParse(r.date!) ?? now;
     } else {
-      _selectedDate = now;
+      _selectedDate = widget.tanggalAwal ?? now;
     }
   }
 
@@ -235,7 +249,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
       // 2. Mode Tambah Baru: buat objek dan simpan dengan box.add (PBI-034)
       final newReminder = Reminder(
         title: title,
-        cityName: '',
+        cityName: widget.kotaAwal ?? '',
         lat: _lat,
         lon: _lon,
         time: _selectedTime,
@@ -243,6 +257,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
         notifOn: _notifOn,
         repeatDaily: _repeatDaily,
         date: savedDate,
+        type: widget.jenisAwal ?? 'umum',
       );
 
       await box.add(newReminder);
@@ -261,7 +276,8 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
       );
     }
 
-    Navigator.pop(context);
+    // true = pengingat tersimpan (dipakai layar Aktivitas)
+    Navigator.pop(context, true);
   }
 
   void _showSnackBar(String message) {

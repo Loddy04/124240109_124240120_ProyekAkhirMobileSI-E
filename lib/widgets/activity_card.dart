@@ -15,12 +15,16 @@ class ActivityCard extends StatelessWidget {
   // true bila hari yang dinilai jauh (prakiraan kurang akurat)
   final bool catatanJauh;
 
+  // Aksi tombol "Buat pengingat"; bila kosong tombol tidak ditampilkan
+  final VoidCallback? onBuatPengingat;
+
   const ActivityCard({
     super.key,
     required this.aktivitas,
     required this.hasil,
     required this.keterangan,
     this.catatanJauh = false,
+    this.onBuatPengingat,
   });
 
   // Warna tingkat: Cocok hijau, Cukup kuning, Kurang dan Hindari merah
@@ -266,6 +270,19 @@ class ActivityCard extends StatelessWidget {
                 style: TextStyle(color: c.textMuted, fontSize: 12),
               ),
             ),
+
+          // Buat pengingat dari hasil ini (tidak ditampilkan bila tidak ada jam yang aman)
+          if (onBuatPengingat != null && hasil.jamPengingat != null) ...[
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onBuatPengingat,
+                icon: const Icon(Icons.notifications_active_outlined, size: 20),
+                label: Text('Buat pengingat pukul ${Activity.formatJam(hasil.jamPengingat!)}'),
+              ),
+            ),
+          ],
         ],
       ),
     );

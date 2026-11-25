@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../api/api_service.dart';
 import '../models/activity.dart';
 import '../models/favorite_city.dart';
+import 'add_reminder_screen.dart';
 import '../theme/app_theme.dart';
 import '../widgets/activity_card.dart';
 
@@ -43,6 +44,10 @@ class _ActivityScreenState extends State<ActivityScreen> {
   Activity? _aktivitasHasil;
   String? _keterangan;
   bool _hariJauh = false;
+
+  // Kota dan hari pada hasil terakhir, untuk mengisi form pengingat
+  _PilihanKota? _kotaHasil;
+  int _hariHasil = 0;
 
   // true bila hasil dihitung dari data cache saat offline (F14)
   bool _dariCache = false;
@@ -123,6 +128,8 @@ class _ActivityScreenState extends State<ActivityScreen> {
         _aktivitasHasil = _aktivitas;
         _keterangan = '${_labelHari(_hari)} · ${kota.nama}';
         _hariJauh = _hari >= 3;
+        _kotaHasil = kota;
+        _hariHasil = _hari;
         _dariCache = data.isFromCache;
         _isLoading = false;
       });
@@ -132,6 +139,44 @@ class _ActivityScreenState extends State<ActivityScreen> {
         _isLoading = false;
         _errorMessage = 'Tidak bisa memuat cuaca. Periksa koneksi internet.';
       });
+    }
+  }
+
+  // Tombol "Buat pengingat": buka form terisi dari hasil, lalu beri kabar bila tersimpan
+  Future<void> _buatPengingat() async {
+    final hasil = _hasil;
+    final aktivitas = _aktivitasHasil;
+    final kota = _kotaHasil;
+    if (hasil == null || aktivitas == null || kota == null) return;
+
+    final isian = IsianPengingat.dari(
+      aktivitas: aktivitas,
+      hasil: hasil,
+      hari: _hariHasil,
+      namaKota: kota.nama,
+    );
+    if (isian == null) return;
+
+    final tersimpan = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddReminderScreen(
+          judulAwal: isian.judul,
+          kotaAwal: kota.nama,
+          jenisAwal: isian.jenis,
+          jamAwal: isian.jam,
+          tanggalAwal: isian.tanggal,
+          latAwal: kota.lat,
+          lonAwal: kota.lon,
+          catatanAwal: isian.catatan,
+        ),
+      ),
+    );
+
+    if (tersimpan == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pengingat dibuat. Lihat di tab Pengingat.')),
+      );
     }
   }
 
@@ -298,6 +343,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
           hasil: hasil,
           keterangan: _keterangan ?? '',
           catatanJauh: _hariJauh,
+          onBuatPengingat: _buatPengingat,
         ),
         // Penanda bila penilaian memakai data terakhir yang tersimpan (offline)
         if (_dariCache)

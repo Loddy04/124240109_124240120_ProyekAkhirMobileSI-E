@@ -78,6 +78,15 @@ class ActivityResult {
     required this.tidakAdaJamAman,
   });
 
+  // Jam yang disarankan untuk pengingat: jam yang lebih baik bila ada, kalau tidak jam yang
+  // dinilai. Null bila pengingat tidak berguna (tidak ada jam aman, atau jam dinilai
+  // berstatus Hindari dan tidak ada jam yang lebih baik).
+  int? get jamPengingat {
+    if (tidakAdaJamAman) return null;
+    if (jamLebihBaik != null) return jamLebihBaik;
+    return tingkat == 'Hindari' ? null : jamDinilai;
+  }
+
   // Ringkasan satu baris, dipakai kartu pengingat dan notifikasi
   String get ringkasan =>
       '$namaAktivitas pukul ${Activity.formatJam(jamDinilai)}: $tingkat ($skor)';
@@ -584,5 +593,52 @@ class OutdoorActivity extends Activity {
         return 'UV tinggi, pakai tabir surya dan topi.';
     }
     return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Isian awal form Pengingat dari hasil Aktivitas (PBI-087). Murni data, tanpa layar,
+// sehingga mudah diuji.
+class IsianPengingat {
+  final String judul;
+  final String jam; // "HH:mm"
+  final DateTime tanggal;
+  final String catatan;
+  final String jenis; // 'jemur', 'motor', 'mobil', atau 'outdoor'
+
+  const IsianPengingat({
+    required this.judul,
+    required this.jam,
+    required this.tanggal,
+    required this.catatan,
+    required this.jenis,
+  });
+
+  // Null bila pengingat tidak berguna (lihat ActivityResult.jamPengingat).
+  // hari: 0 = hari ini sampai 6. sekarang hanya diisi saat tes.
+  static IsianPengingat? dari({
+    required Activity aktivitas,
+    required ActivityResult hasil,
+    required int hari,
+    required String namaKota,
+    DateTime? sekarang,
+  }) {
+    final jamPilihan = hasil.jamPengingat;
+    if (jamPilihan == null) return null;
+
+    final now = sekarang ?? DateTime.now();
+    final tanggal = DateTime(now.year, now.month, now.day).add(Duration(days: hari));
+
+    // Skor pada jam yang dipilih: jam lebih baik memakai skornya sendiri
+    final lebihBaik = hasil.jamLebihBaik != null && jamPilihan == hasil.jamLebihBaik;
+    final skor = lebihBaik ? (hasil.skorLebihBaik ?? hasil.skor) : hasil.skor;
+
+    return IsianPengingat(
+      judul: '${aktivitas.nama} · $namaKota',
+      jam: '${jamPilihan.toString().padLeft(2, '0')}:00',
+      tanggal: tanggal,
+      catatan: 'Skor ${Activity.tingkatDari(skor)} ($skor) pada pukul ${Activity.formatJam(jamPilihan)}.',
+      jenis: aktivitas.type,
+    );
   }
 }
