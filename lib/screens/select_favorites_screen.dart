@@ -147,7 +147,7 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Header kartu: Nama kota, Provinsi + Tombol Hati Biru Aktif
+              // Header kartu: nama kota + tombol hati
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -165,16 +165,6 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
                             fontWeight: FontWeight.w700,
                             color: c.text,
                             letterSpacing: -0.2,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          city.province,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: c.textMuted,
                           ),
                         ),
                       ],
@@ -272,16 +262,6 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Kelembapan ${weather.humidity}%',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: c.textMuted,
-                      ),
-                    ),
                   ] else ...[
                     Text(
                       'Memuat cuaca...',
@@ -362,13 +342,6 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
                                   color: c.text,
                                 ),
                               ),
-                              Text(
-                                'Semua kota di bawah ini otomatis tampil di slider Beranda',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: c.textMuted,
-                                ),
-                              ),
                             ],
                           ),
                         ),
@@ -409,11 +382,6 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
                               color: c.accent,
                             ),
                           ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          'Ketuk ♥ untuk menghapus',
-                          style: TextStyle(fontSize: 10, color: c.textMuted),
                         ),
                       ],
                     ),
@@ -641,16 +609,7 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
                                       const SizedBox(height: 2),
                                       Row(
                                         children: [
-                                          Flexible(
-                                            child: Text(
-                                              city.province,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(fontSize: 11, color: c.textMuted),
-                                            ),
-                                          ),
                                           if (weather != null) ...[
-                                            const SizedBox(width: 6),
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                               decoration: BoxDecoration(
@@ -674,7 +633,7 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
                                     ],
                                   ),
                                 ),
-                                // Suhu + kelembapan ringkas
+                                // Suhu
                                 if (weather != null)
                                   Padding(
                                     padding: const EdgeInsets.only(right: 10),
@@ -688,17 +647,6 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
                                             fontWeight: FontWeight.bold,
                                             color: c.text,
                                           ),
-                                        ),
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(Icons.water_drop_outlined, size: 10, color: c.textMuted),
-                                            const SizedBox(width: 2),
-                                            Text(
-                                              '${weather.humidity}%',
-                                              style: TextStyle(fontSize: 10, color: c.textMuted),
-                                            ),
-                                          ],
                                         ),
                                       ],
                                     ),

@@ -439,11 +439,15 @@ class HeroCard extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final VoidCallback? onTap;
 
+  // Gradien kartu; bila kosong memakai biru tema (heroA ke heroB)
+  final LinearGradient? gradient;
+
   const HeroCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(20),
     this.onTap,
+    this.gradient,
   });
 
   @override
@@ -454,15 +458,16 @@ class HeroCard extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: borderRadius,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [c.heroA, c.heroB],
-        ),
+        gradient: gradient ??
+            LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [c.heroA, c.heroB],
+            ),
         border: Border.all(color: const Color(0x47FFFFFF)),
         boxShadow: [
           BoxShadow(
-            color: c.heroA.withAlpha(90),
+            color: (gradient?.colors.first ?? c.heroA).withAlpha(90),
             blurRadius: 36,
             offset: const Offset(0, 14),
           ),

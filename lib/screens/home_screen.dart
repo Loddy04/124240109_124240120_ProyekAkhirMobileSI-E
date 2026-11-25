@@ -10,6 +10,7 @@ import '../services/location_service.dart';
 import '../services/pengingat_berikutnya.dart';
 import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
+import '../theme/weather_gradient.dart';
 import '../widgets/home_sections.dart';
 import '../widgets/nearby_favorites_card.dart';
 import '../widgets/permission_dialog.dart';
@@ -563,6 +564,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // Kartu saat belum ada kota: sedang mencari lokasi, atau ajakan memilih kota
   Widget _kartuKosong() {
     return HeroCard(
+      gradient: weatherGradient(null, Theme.of(context).brightness == Brightness.dark),
       child: SizedBox(
         height: 190,
         width: double.infinity,
@@ -618,6 +620,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final gagal = _gagal.contains(kota.kunci);
     return HeroCard(
       onTap: gagal ? () => _muat(i, paksa: true) : null,
+      gradient: weatherGradient(null, Theme.of(context).brightness == Brightness.dark),
       child: SizedBox(
         height: 190,
         width: double.infinity,

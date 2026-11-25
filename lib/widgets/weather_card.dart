@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/weather_data.dart';
 import '../theme/app_theme.dart';
+import '../theme/weather_gradient.dart';
 
 // Kartu utama Beranda (F2): nama kota, suhu besar, kondisi cuaca,
 // dan tiga info singkat (kelembapan, angin, peluang hujan).
@@ -59,6 +60,11 @@ class WeatherCard extends StatelessWidget {
 
     return HeroCard(
       onTap: onTap,
+      // Warna kartu mengikuti kondisi cuaca, sama dengan kartu di tab Kota
+      gradient: weatherGradient(
+        data.weatherCode,
+        Theme.of(context).brightness == Brightness.dark,
+      ),
       // Stack: ikon cuaca besar ditempatkan di sisi kanan, di atas isi kartu
       child: Stack(
         children: [

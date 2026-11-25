@@ -8,6 +8,7 @@ import '../models/popular_city.dart';
 import '../models/weather_data.dart';
 import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
+import '../theme/weather_gradient.dart';
 import '../widgets/city_search_field.dart';
 import 'detail_screen.dart';
 import 'select_favorites_screen.dart';
@@ -149,93 +150,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     }
   }
 
-  // ── Gradien Cuaca Atmosferik Adaptif (Mode Terang vs Mode Gelap) ─────────
-  // Tidak ada warna nabrak: di mode terang gradien lebih cerah & kaya,
-  // di mode gelap gradien lebih dalam (deep midnight/moody) dan nyaman di mata.
-  LinearGradient _getAtmosphericGradient(WeatherData? weather, bool isDark) {
-    if (weather == null) {
-      return LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: isDark
-            ? const [Color(0xFF345A9A), Color(0xFF2A4A86)]
-            : const [Color(0xFF3B68B5), Color(0xFF285098)],
-      );
-    }
-
-    final code = weather.weatherCode;
-
-    // 1. Cerah (kode 0)
-    if (code == 0) {
-      return LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: isDark
-            ? const [Color(0xFF2B72D4), Color(0xFF2467C4), Color(0xFF1B4F9E)]
-            : const [Color(0xFF2180E8), Color(0xFF1E70CF), Color(0xFF3892F3)],
-      );
-    }
-
-    // 2. Cerah Berawan / Berawan Sebagian (kode 1-2)
-    if (code == 1 || code == 2) {
-      return LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: isDark
-            ? const [Color(0xFF3F79BE), Color(0xFF336AAB), Color(0xFF285792)]
-            : const [Color(0xFF3A7BC8), Color(0xFF4E8CD4), Color(0xFF679EE0)],
-      );
-    }
-
-    // 3. Berawan Penuh / Kabut (kode 3, 45, 48)
-    if (code == 3 || code == 45 || code == 48) {
-      return LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: isDark
-            ? const [Color(0xFF5A7391), Color(0xFF4D647F), Color(0xFF405670)]
-            : const [Color(0xFF506882), Color(0xFF627B97), Color(0xFF758EAA)],
-      );
-    }
-
-    // 4. Gerimis / Hujan (kode 51-67, 80-82)
-    if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) {
-      return LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: isDark
-            ? const [Color(0xFF3A6EA5), Color(0xFF2F5C8E), Color(0xFF254B78)]
-            : const [Color(0xFF2B5B84), Color(0xFF3A71A0), Color(0xFF4A84B3)],
-      );
-    }
-
-    // 5. Badai Petir (kode 95-99)
-    if (code >= 95 && code <= 99) {
-      return LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: isDark
-            ? const [Color(0xFF6A4DA8), Color(0xFF573C8E), Color(0xFF453075)]
-            : const [Color(0xFF4A346E), Color(0xFF583F83), Color(0xFF694C9C)],
-      );
-    }
-
-    return LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: isDark
-          ? const [Color(0xFF3F6AA0), Color(0xFF345A8C)]
-          : const [Color(0xFF385573), Color(0xFF4A6B8E)],
-    );
-  }
-
-  // Label ilmiah spektrum suhu (Panas / Hangat / Sejuk)
-  String _tempSpectrum(double temp) {
-    if (temp >= 31) return 'Panas';
-    if (temp >= 25) return 'Hangat';
-    return 'Sejuk';
-  }
-
   // ── Kartu Cuaca Representatif & Elegan ─────────────────────────────────────
   Widget _buildWeatherCard({
     required PopularCity city,
@@ -249,7 +163,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       _loadWeather(city.name, city.province, city.lat, city.lon);
     }
 
-    final gradient = _getAtmosphericGradient(weather, isDark);
+    final gradient = weatherGradient(weather?.weatherCode, isDark);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
@@ -308,58 +222,18 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Sisi Kiri Atas: Nama Kota & Kategori Suhu
+                          // Sisi Kiri Atas: nama kota
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        city.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 21,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white,
-                                          letterSpacing: -0.3,
-                                        ),
-                                      ),
-                                    ),
-                                    if (weather != null) ...[
-                                      const SizedBox(width: 8),
-                                      // Badge Spektrum Suhu
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: 0.18),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          _tempSpectrum(weather.tempC),
-                                          style: const TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  city.province,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.white.withValues(alpha: 0.78),
-                                  ),
-                                ),
-                              ],
+                            child: Text(
+                              city.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 21,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                letterSpacing: -0.3,
+                              ),
                             ),
                           ),
 
@@ -440,56 +314,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                   ),
                           ),
 
-                          const SizedBox(width: 8),
-
-                          // Kanan Bawah: Parameter Nyata (Kelembapan & H/L)
-                          if (weather != null)
-                            Flexible(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  // Kelembapan riil
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.22),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.water_drop_rounded, size: 11, color: Colors.white70),
-                                        const SizedBox(width: 3),
-                                        Text(
-                                          '${weather.humidity}%',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w500,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (weather.dailyMax.isNotEmpty && weather.dailyMin.isNotEmpty) ...[
-                                    const SizedBox(width: 6),
-                                    Flexible(
-                                      child: Text(
-                                        'T:${weather.dailyMax.first.round()}° R:${weather.dailyMin.first.round()}°',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.white.withValues(alpha: 0.9),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
                         ],
                       ),
                     ],
