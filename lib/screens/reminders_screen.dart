@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../models/reminder.dart';
 import '../services/notification_service.dart';
+import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
 import 'add_reminder_screen.dart';
 
@@ -42,12 +43,16 @@ class _RemindersScreenState extends State<RemindersScreen> {
   }
 
   Future<void> _requestPermissionIfNeeded() async {
+    // Jika user sudah pernah menyetujui izin notifikasi sebelumnya, jangan pernah tampilkan lagi
+    if (SettingsService.notifPermissionGranted) return;
     if (_permAsked) return;
     _permAsked = true;
 
     // Tampilkan dialog penjelasan dulu sebelum meminta izin sistem
     if (!mounted) return;
     final c = context.pc;
+    final isDark = SettingsService.darkMode;
+
     final shouldRequest = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -100,18 +105,26 @@ class _RemindersScreenState extends State<RemindersScreen> {
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        side: BorderSide(color: c.glassBorder),
+                        // Mode terang background putih bersih, mode gelap outline transparan
+                        backgroundColor: isDark ? Colors.transparent : Colors.white,
+                        side: BorderSide(
+                          color: isDark ? c.glassBorder : const Color(0xFFD6E4F0),
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(AppTheme.radiusButton),
                         ),
                       ),
-                      onPressed: () => Navigator.pop(dialogCtx, false),
+                      onPressed: () {
+                        // User memilih nanti: reset _permAsked agar jika pindah tab dan kembali lagi bisa muncul lagi
+                        _permAsked = false;
+                        Navigator.pop(dialogCtx, false);
+                      },
                       child: Text(
                         'Nanti Saja',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: c.textMuted,
+                          color: isDark ? c.textMuted : const Color(0xFF4A5568),
                         ),
                       ),
                     ),
@@ -122,8 +135,10 @@ class _RemindersScreenState extends State<RemindersScreen> {
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         backgroundColor: c.accent,
+                        // Teks selalu putih kontras dan tebal agar terbaca sangat jelas di mode terang maupun gelap
                         foregroundColor: Colors.white,
-                        elevation: 0,
+                        elevation: isDark ? 2 : 0,
+                        shadowColor: c.accent.withValues(alpha: 0.4),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(AppTheme.radiusButton),
                         ),
@@ -134,6 +149,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -147,6 +163,8 @@ class _RemindersScreenState extends State<RemindersScreen> {
     );
 
     if (shouldRequest == true) {
+      // Simpan status bahwa user sudah memberi izin, agar tidak pernah muncul lagi selamanya
+      await SettingsService.setNotifPermissionGranted(true);
       await NotificationService().requestPermission();
     }
   }
@@ -445,7 +463,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: c.accent,
-        foregroundColor: Colors.white,
+        foregroundColor: Theme.of(context).brightness == Brightness.dark ? c.onAccent : Colors.white,
         icon: const Icon(Icons.add_rounded),
         label: const Text('Buat Pengingat', style: TextStyle(fontWeight: FontWeight.bold)),
         onPressed: () {

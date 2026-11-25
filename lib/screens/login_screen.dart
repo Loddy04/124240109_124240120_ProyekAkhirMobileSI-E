@@ -193,126 +193,138 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Kartu utama login dengan efek kaca
-              GlassCard(
-                padding: const EdgeInsets.all(28.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Logo aplikasi Payungin
-                    Image.asset(
-                      'assets/images/logo_mark_blue.png',
-                      width: 72,
-                      height: 72,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Payungin',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        color: c.text,
+              // Kartu utama login dengan efek kaca (bungkus Container untuk ubah warna kartu)
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white, // <-- Ganti warna latar card di sini (contoh: Colors.amber.withOpacity(0.15))
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: GlassCard(
+                  padding: const EdgeInsets.all(28.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Logo aplikasi Payungin
+                      Image.asset(
+                        'assets/images/logo_mark_blue.png',
+                        width: 72,
+                        height: 72,
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Pantau cuaca dan siap sedia sebelum hujan',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: c.textMuted,
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-
-                    // Input Username
-                    InputField(
-                      controller: _usernameController,
-                      label: 'Username',
-                      hint: 'Masukkan username',
-                      prefixIcon: Icons.person_outline_rounded,
-                      isError: _isLoginFailed,
-                      textInputAction: TextInputAction.next,
-                      onChanged: (_) {
-                        if (_isLoginFailed) {
-                          setState(() => _isLoginFailed = false);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 18),
-
-                    // Input Password
-                    InputField(
-                      controller: _passwordController,
-                      label: 'Password',
-                      hint: 'Masukkan password',
-                      prefixIcon: Icons.lock_outline_rounded,
-                      obscureText: _obscurePassword,
-                      isError: _isLoginFailed,
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => _login(),
-                      onChanged: (_) {
-                        if (_isLoginFailed) {
-                          setState(() => _isLoginFailed = false);
-                        }
-                      },
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                          color: _isLoginFailed ? c.danger : c.textMuted,
+                      const SizedBox(height: 16),
+                      Text(
+                        'Payungin',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          color: c.text,
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Pantau cuaca dan siap sedia sebelum hujan',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: c.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+
+                      // Input Username
+                      InputField(
+                        controller: _usernameController,
+                        label: 'Username',
+                        hint: 'Masukkan username',
+                        prefixIcon: Icons.person_outline_rounded,
+                        isError: _isLoginFailed,
+                        textInputAction: TextInputAction.next,
+                        fillColor: Colors.white.withOpacity(0.2), // <-- Ganti warna Username di sini
+                        onChanged: (_) {
+                          if (_isLoginFailed) {
+                            setState(() => _isLoginFailed = false);
+                          }
                         },
                       ),
-                    ),
-                    const SizedBox(height: 28),
+                      const SizedBox(height: 18),
 
-                    // Tombol Masuk
-                    ElevatedButton(
-                      onPressed: _login,
-                      child: const Text('Masuk'),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Tautan menuju layar Registrasi Akun Baru
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Belum punya akun? ',
-                          style: TextStyle(color: c.textMuted, fontSize: 13),
-                        ),
-                        GestureDetector(
-                          onTap: () async {
-                            final registeredUser = await Navigator.push<String>(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const RegisterScreen(),
-                              ),
-                            );
-                            // Otomatis isi username jika baru saja mendaftar
-                            if (registeredUser != null && registeredUser.isNotEmpty) {
-                              _usernameController.text = registeredUser;
-                              _passwordController.clear();
-                            }
+                      // Input Password
+                      InputField(
+                        controller: _passwordController,
+                        label: 'Password',
+                        hint: 'Masukkan password',
+                        prefixIcon: Icons.lock_outline_rounded,
+                        obscureText: _obscurePassword,
+                        isError: _isLoginFailed,
+                        textInputAction: TextInputAction.done,
+                        fillColor: Colors.white.withOpacity(0.2), // <-- Ganti warna Password di sini
+                        onSubmitted: (_) => _login(),
+                        onChanged: (_) {
+                          if (_isLoginFailed) {
+                            setState(() => _isLoginFailed = false);
+                          }
+                        },
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            color: _isLoginFailed ? c.danger : c.textMuted,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
                           },
-                          child: Text(
-                            'Daftar di sini',
-                            style: TextStyle(
-                              color: c.accent,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+
+                      // Tombol Masuk
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: c.accent, // <-- Ganti warna tombol di sini (contoh: Colors.red atau Colors.green)
+                          foregroundColor: Colors.white, // <-- Ganti warna teks tombol di sini
+                        ),
+                        onPressed: _login,
+                        child: const Text('Masuk'),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Tautan menuju layar Registrasi Akun Baru
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Belum punya akun? ',
+                            style: TextStyle(color: c.textMuted, fontSize: 13),
+                          ),
+                          GestureDetector(
+                            onTap: () async {
+                              final registeredUser = await Navigator.push<String>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const RegisterScreen(),
+                                ),
+                              );
+                              // Otomatis isi username jika baru saja mendaftar
+                              if (registeredUser != null && registeredUser.isNotEmpty) {
+                                _usernameController.text = registeredUser;
+                                _passwordController.clear();
+                              }
+                            },
+                            child: Text(
+                              'Daftar di sini',
+                              style: TextStyle(
+                                color: c.accent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],

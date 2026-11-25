@@ -96,4 +96,13 @@ class SettingsService {
     final loginTime = DateTime.fromMillisecondsSinceEpoch(ts);
     return DateTime.now().difference(loginTime).inDays >= 7;
   }
+
+  // Cek apakah user sudah pernah menyetujui izin notifikasi
+  static bool get notifPermissionGranted =>
+      _prefs?.getBool('notifPermissionGranted') ?? false;
+
+  // Simpan status bahwa user telah mengizinkan notifikasi
+  static Future<void> setNotifPermissionGranted(bool granted) async {
+    await _prefs?.setBool('notifPermissionGranted', granted);
+  }
 }

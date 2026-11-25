@@ -13,6 +13,7 @@ class InputField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
+  final Color? fillColor;
 
   const InputField({
     super.key,
@@ -26,6 +27,7 @@ class InputField extends StatelessWidget {
     this.textInputAction,
     this.onChanged,
     this.onSubmitted,
+    this.fillColor,
   });
 
   @override
@@ -61,7 +63,8 @@ class InputField extends StatelessWidget {
                 : null,
             suffixIcon: suffixIcon,
             filled: true,
-            fillColor: c.glass,
+            // Jika ada fillColor khusus dari layar pemanggil gunakan itu, jika tidak pakai c.glass (default)
+            fillColor: fillColor ?? c.glass,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(
