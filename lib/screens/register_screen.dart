@@ -9,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/favorite_city.dart';
 import '../models/reminder.dart';
 import '../services/notification_service.dart';
-import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/input_field.dart';
 
@@ -113,15 +112,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       await Hive.box<FavoriteCity>('favorites').clear();
       await Hive.box<String>('weather_cache').clear();
 
-      // 3. Bersihkan foto profil dan reset preferensi pengaturan ke default
+      // 3. Bersihkan foto profil dan reset satuan suhu. Tema gelap/terang tidak direset:
+      // itu preferensi perangkat, bukan data akun.
       await prefs.remove('profileImagePath');
-      await prefs.setBool('darkMode', false);
       await prefs.setString('tempUnit', 'C');
       // Kota utama dikosongkan: akun baru menentukannya lewat lokasi GPS di Beranda
       await prefs.remove('mainCity');
       await prefs.remove('mainLat');
       await prefs.remove('mainLon');
-      SettingsService.themeModeNotifier.value = ThemeMode.light;
 
       // 4. Simpan data kredensial akun baru ke SharedPreferences
       await prefs.setString('registered_fullName', fullName);
@@ -293,7 +291,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         onPressed: _isLoading ? null : _handleRegister,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: c.accent,
-                          foregroundColor: Colors.white,
+                          foregroundColor: c.onAccent,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(AppTheme.radiusButton),

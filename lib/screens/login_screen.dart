@@ -193,10 +193,9 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Kartu utama login dengan efek kaca (bungkus Container untuk ubah warna kartu)
+              // Kartu utama login dengan efek kaca (warna mengikuti tema terang atau gelap)
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white, // <-- Ganti warna latar card di sini (contoh: Colors.amber.withOpacity(0.15))
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: GlassCard(
@@ -283,7 +282,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: c.accent, // <-- Ganti warna tombol di sini (contoh: Colors.red atau Colors.green)
-                          foregroundColor: Colors.white, // <-- Ganti warna teks tombol di sini
+                          foregroundColor: c.onAccent, // teks tombol: putih di mode terang, biru tua di mode gelap
                         ),
                         onPressed: _login,
                         child: const Text('Masuk'),
@@ -300,17 +299,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           GestureDetector(
                             onTap: () async {
-                              final registeredUser = await Navigator.push<String>(
+                              // Setelah mendaftar, kolom login dibiarkan kosong (tidak diisi otomatis)
+                              await Navigator.push<String>(
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => const RegisterScreen(),
                                 ),
                               );
-                              // Otomatis isi username jika baru saja mendaftar
-                              if (registeredUser != null && registeredUser.isNotEmpty) {
-                                _usernameController.text = registeredUser;
-                                _passwordController.clear();
-                              }
                             },
                             child: Text(
                               'Daftar di sini',

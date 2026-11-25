@@ -1,11 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 
+import '../models/favorite_city.dart';
 import '../models/reminder.dart';
 import '../services/notification_service.dart';
 import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/input_field.dart';
+
+// Satu pilihan pada dropdown Kota: kota favorit (atau kota awal dari layar lain)
+class _PilihanKota {
+  final String nama;
+  final double lat;
+  final double lon;
+
+  const _PilihanKota(this.nama, this.lat, this.lon);
+}
 
 // Layar Form Tambah dan Ubah Pengingat Cuaca (F6 / PBI-033)
 // Mendukung mode tambah baru dan edit data berbasis Hive key
@@ -57,7 +67,14 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
   late bool _notifOn;
   late bool _repeatDaily;
 
+  // Pilihan kota (dari favorit) dan indeks yang terpilih; null = belum ada kota terpilih
+  late final List<_PilihanKota> _kotaPilihan;
+  int? _indeksKota;
+
   bool _isTitleError = false;
+
+  _PilihanKota? get _kotaTerpilih =>
+      _indeksKota == null ? null : _kotaPilihan[_indeksKota!];
 
   @override
   void initState() {
@@ -78,6 +95,34 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
     _lon = r?.lon ?? widget.lonAwal ?? SettingsService.mainLon;
     _notifOn = r?.notifOn ?? true;
     _repeatDaily = r?.repeatDaily ?? false;
+
+    // Pilihan kota: kota favorit (nama yang sama hanya sekali). Kota awal (dari pengingat
+    // lama atau layar Aktivitas) dipilih; bila tidak ada di favorit, ditambahkan di atas.
+    final pilihan = <_PilihanKota>[];
+    final sudahAda = <String>{};
+    for (final f in Hive.box<FavoriteCity>('favorites').values) {
+      if (sudahAda.add(f.name.toLowerCase())) {
+        pilihan.add(_PilihanKota(f.name, f.lat, f.lon));
+      }
+    }
+    final namaAwal = (r != null && r.cityName.isNotEmpty) ? r.cityName : widget.kotaAwal;
+    int? indeks;
+    if (namaAwal != null && namaAwal.isNotEmpty) {
+      indeks = pilihan.indexWhere((k) => k.nama.toLowerCase() == namaAwal.toLowerCase());
+      if (indeks < 0) {
+        pilihan.insert(0, _PilihanKota(namaAwal, _lat, _lon));
+        indeks = 0;
+      }
+    } else if (r == null && pilihan.isNotEmpty) {
+      // Pengingat baru tanpa kota awal: kota favorit pertama
+      indeks = 0;
+      if (widget.latAwal == null) {
+        _lat = pilihan[0].lat;
+        _lon = pilihan[0].lon;
+      }
+    }
+    _kotaPilihan = pilihan;
+    _indeksKota = indeks;
 
     if (r?.date != null && r!.date!.isNotEmpty) {
       _selectedDate = DateTime.tryParse(r.date!) ?? now;
@@ -217,7 +262,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
       // 1. Mode Edit: perbarui object pengingat dan simpan
       final r = widget.reminder!;
       r.title = title;
-      r.cityName = r.cityName; // pertahankan nilai kota bawaan
+      r.cityName = _kotaTerpilih?.nama ?? r.cityName; // kota terpilih, atau pertahankan yang lama
       r.lat = _lat;
       r.lon = _lon;
       r.time = _selectedTime;
@@ -249,7 +294,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
       // 2. Mode Tambah Baru: buat objek dan simpan dengan box.add (PBI-034)
       final newReminder = Reminder(
         title: title,
-        cityName: widget.kotaAwal ?? '',
+        cityName: _kotaTerpilih?.nama ?? widget.kotaAwal ?? '',
         lat: _lat,
         lon: _lon,
         time: _selectedTime,
@@ -345,6 +390,49 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
                               if (_isTitleError) setState(() => _isTitleError = false);
                             },
                           ),
+                          const SizedBox(height: 18),
+
+                          // Kota pengingat (pilihan dari kota favorit)
+                          Text(
+                            'Kota',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: c.text,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          if (_kotaPilihan.isEmpty)
+                            Text(
+                              'Belum ada kota favorit. Tambahkan di tab Kota.',
+                              style: TextStyle(fontSize: 12, color: c.textMuted),
+                            )
+                          else
+                            DropdownButtonFormField<int>(
+                              initialValue: _indeksKota,
+                              isExpanded: true,
+                              dropdownColor: c.bgMid,
+                              style: TextStyle(color: c.text, fontSize: 15),
+                              hint: Text('Pilih kota', style: TextStyle(color: c.textMuted)),
+                              decoration: InputDecoration(
+                                prefixIcon: Icon(Icons.location_on_outlined, color: c.textMuted),
+                              ),
+                              items: [
+                                for (var i = 0; i < _kotaPilihan.length; i++)
+                                  DropdownMenuItem(
+                                    value: i,
+                                    child: Text(_kotaPilihan[i].nama, overflow: TextOverflow.ellipsis),
+                                  ),
+                              ],
+                              onChanged: (i) {
+                                if (i == null) return;
+                                setState(() {
+                                  _indeksKota = i;
+                                  _lat = _kotaPilihan[i].lat;
+                                  _lon = _kotaPilihan[i].lon;
+                                });
+                              },
+                            ),
                           const SizedBox(height: 18),
 
                           // Pemilih Jam Pengingat
