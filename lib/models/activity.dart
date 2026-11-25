@@ -10,6 +10,37 @@ import 'weather_data.dart';
 // Inheritance : JemurActivity, MotorActivity, MobilActivity, OutdoorActivity.
 // Polymorphism: layar cukup memakai tipe Activity; faktor dan teksnya beda tiap subclass.
 
+// ===========================================================================
+// CARA KERJA PENILAIAN (baca ini dulu)
+//
+// Pertanyaan yang dijawab: "Apakah cuaca pada jam X, hari Y, di kota Z cocok untuk kegiatan ini?"
+// Jawabannya berupa SKOR 0 sampai 100, dihitung dengan langkah berikut:
+//
+// 1. Ambil prakiraan PER JAM dari Open-Meteo (peluang hujan, kode cuaca, UV, angin, dst).
+// 2. Tiap kegiatan punya beberapa FAKTOR. Contoh Jemur pakaian: hujan, kondisi langit, UV,
+//    kelembapan.
+// 3. Tiap faktor diberi STATUS dari ambangnya: Bagus (100 poin), Sedang (50), Buruk (0).
+//    Contoh: peluang hujan <= 20% Bagus, <= 50% Sedang, di atas itu Buruk.
+// 4. Tiap faktor punya BOBOT, yaitu seberapa penting faktor itu. Jumlah bobot semua faktor
+//    dalam satu kegiatan selalu 100.
+// 5. Skor mentah = jumlah (poin x bobot) / 100.
+// 6. Ada dua BATAS agar satu faktor fatal tidak "tertutup" oleh faktor lain yang bagus:
+//    - faktor penentu (penentu: true) berstatus Buruk -> skor maksimal 40
+//    - badai petir                                    -> skor maksimal 20
+// 7. TINGKAT dari skor: Cocok (>= 75), Cukup (>= 50), Kurang (>= 25), Hindari (< 25).
+// 8. Aplikasi juga mencari JAM LEBIH BAIK (06.00 sampai 21.00, hari yang sama).
+//
+// Contoh perhitungan (Jemur pakaian, besok 09.00):
+//   hujan 15%  -> Bagus (100), bobot 30
+//   cerah      -> Bagus (100), bobot 15
+//   UV 5,75    -> Bagus (100), bobot 30
+//   lembap 79% -> Sedang (50), bobot 25
+//   (100x30 + 100x15 + 100x30 + 50x25) / 100 = 87,5 -> dibulatkan 88 -> Cocok
+//
+// Contoh batas: bila hujan 60% (Buruk dan penentu), hujan dan kondisi menjadi 0 poin, sisa
+//   total 42,5 -> dibulatkan 43, tetapi dipotong batas 40 -> skor 40 -> Kurang.
+// ===========================================================================
+
 // Status satu faktor: Bagus bernilai 100 poin, Sedang 50, Buruk 0
 enum Status { bagus, sedang, buruk }
 
@@ -19,8 +50,10 @@ enum KelasKondisi { cerah, kabut, gerimis, hujan, badai }
 // Hasil penilaian satu faktor, misalnya "Peluang hujan 15% = Bagus"
 class FactorResult {
   final String nama;
-  final String nilaiTeks;
+  final String nilaiTeks; // nilai yang ditampilkan, mis. "15%" atau "5,8"
   final Status status;
+
+  // Seberapa penting faktor ini dalam skor (jumlah bobot satu kegiatan = 100)
   final int bobot;
 
   // Faktor penentu (bertanda bintang di dokumen): bila Buruk, skor dibatasi 40
@@ -34,6 +67,8 @@ class FactorResult {
     this.penentu = false,
   });
 
+  // Status diubah menjadi angka poin: Bagus 100, Sedang 50, Buruk 0.
+  // Poin dikalikan bobot saat skor dihitung (lihat Activity._hitung).
   int get poin {
     switch (status) {
       case Status.bagus:
@@ -92,6 +127,10 @@ class ActivityResult {
       '$namaAktivitas pukul ${Activity.formatJam(jamDinilai)}: $tingkat ($skor)';
 }
 
+// Kelas induk semua kegiatan. Alur penilaian (analyze) ditulis SEKALI di sini; tiap kegiatan
+// (subclass) hanya mengisi bagian yang berbeda: faktor, ambang, bobot, dan kalimat saran.
+// Pola ini disebut Template Method, dan layar cukup memanggil analyze() pada tipe Activity
+// tanpa peduli kegiatan apa yang sedang dipilih (polimorfisme).
 abstract class Activity {
   const Activity();
 
@@ -129,10 +168,14 @@ abstract class Activity {
 
   // ---- Alur penilaian (sama untuk semua aktivitas) ----
 
-  // hari: 0 = hari ini sampai 6; jam: 0 sampai 23
+  // Menilai satu kegiatan pada hari dan jam tertentu.
+  // hari: 0 = hari ini sampai 6 (tujuh hari ke depan); jam: 0 sampai 23.
   ActivityResult analyze(WeatherData data, int hari, int jam) {
+    // Langkah 1: cari posisi jam itu di daftar prakiraan per jam
     final indeks = _indeks(data, hari, jam);
+    // Langkah 2: hitung skor (faktor, bobot, batas penentu dan badai)
     final hitung = _hitung(data, indeks);
+    // Langkah 3: ubah skor menjadi tingkat (Cocok, Cukup, Kurang, Hindari)
     final tingkat = tingkatDari(hitung.skor);
 
     // Saran: kalimat menurut tingkat, lalu saran dari tiap faktor yang Buruk
@@ -149,8 +192,11 @@ abstract class Activity {
     int? skorBaik;
     var adaJamAman = false;
     for (var j = jamSaranAwal; j <= jamSaranAkhir; j++) {
+      // Skor tiap jam dari 06.00 sampai 21.00 pada hari yang sama
       final s = _hitung(data, _indeks(data, hari, j)).skor;
+      // Jam dianggap aman bila skornya minimal 25 (tingkat Kurang ke atas)
       if (s >= 25) adaJamAman = true;
+      // Simpan jam dengan skor tertinggi sejauh ini
       if (skorBaik == null || s > skorBaik) {
         skorBaik = s;
         jamBaik = j;
@@ -176,7 +222,10 @@ abstract class Activity {
     );
   }
 
-  // Indeks jam pada daftar per jam: hari x 24 + jam, ditahan di dalam batas data
+  // Posisi sebuah jam di daftar prakiraan per jam.
+  // Open-Meteo memberi 7 hari x 24 jam = 168 data berurutan, dimulai pukul 00.00 hari ini.
+  // Jadi indeks = hari x 24 + jam. Contoh: besok (hari 1) pukul 09.00 -> 1 x 24 + 9 = 33.
+  // Nilai ditahan di dalam batas data agar tidak error bila data kurang.
   int _indeks(WeatherData data, int hari, int jam) {
     final maks = data.hourlyTime.length - 1;
     if (maks < 0) return 0;
@@ -186,17 +235,21 @@ abstract class Activity {
     return i;
   }
 
-  // Skor satu jam: jumlah (poin x bobot) / 100, lalu batas faktor penentu dan badai petir
+  // Skor satu jam: jumlah (poin x bobot) / 100, lalu batas faktor penentu dan badai petir.
+  // Mengembalikan skor akhir, apakah skor dipotong batas (dibatasi), dan daftar faktornya.
   ({int skor, bool dibatasi, List<FactorResult> faktor}) _hitung(
     WeatherData data,
     int indeks,
   ) {
+    // Faktor dan statusnya diisi oleh subclass (beda tiap kegiatan)
     final faktor = faktorPada(data, indeks);
 
+    // Jumlahkan poin x bobot. Contoh: Bagus (100) x bobot 30 = 3000
     var total = 0;
     for (final f in faktor) {
       total += f.poin * f.bobot;
     }
+    // Dibagi 100 karena jumlah bobot = 100, hasilnya langsung skala 0 sampai 100
     final mentah = (total / 100).round();
 
     // Batas: faktor penentu Buruk -> maksimal 40; badai petir -> maksimal 20
@@ -205,6 +258,7 @@ abstract class Activity {
     final kode = ambil(data.hourlyCode, indeks, 0);
     if (kelasKondisi(kode) == KelasKondisi.badai && batas > 20) batas = 20;
 
+    // Skor akhir tidak boleh melewati batas. dibatasi = true bila skor benar-benar dipotong
     final skor = mentah > batas ? batas : mentah;
     return (skor: skor, dibatasi: skor < mentah, faktor: faktor);
   }
@@ -223,21 +277,25 @@ abstract class Activity {
   static T ambil<T>(List<T> daftar, int indeks, T bawaan) =>
       indeks >= 0 && indeks < daftar.length ? daftar[indeks] : bawaan;
 
-  // Faktor yang makin kecil makin baik (hujan, angin, kelembapan)
+  // Faktor yang makin kecil makin baik (hujan, angin, kelembapan).
+  // Contoh rendahLebihBaik(hujan, 20, 50): sampai 20 Bagus, 21 sampai 50 Sedang, di atas 50 Buruk.
   static Status rendahLebihBaik(num nilai, num bagusMaks, num sedangMaks) {
     if (nilai <= bagusMaks) return Status.bagus;
     if (nilai <= sedangMaks) return Status.sedang;
     return Status.buruk;
   }
 
-  // Faktor yang makin besar makin baik (UV untuk menjemur)
+  // Faktor yang makin besar makin baik (UV untuk menjemur).
+  // Contoh tinggiLebihBaik(uv, 5, 3): UV 5 ke atas Bagus, 3 sampai 4,9 Sedang, di bawah 3 Buruk.
   static Status tinggiLebihBaik(num nilai, num bagusMin, num sedangMin) {
     if (nilai >= bagusMin) return Status.bagus;
     if (nilai >= sedangMin) return Status.sedang;
     return Status.buruk;
   }
 
-  // Kode cuaca -> kelompok kondisi
+  // Kode cuaca Open-Meteo (standar WMO) -> kelompok kondisi:
+  // 45 dan 48 kabut; 51 sampai 57 gerimis; 61 sampai 67 dan 80 sampai 82 hujan;
+  // 95 sampai 99 badai petir; kode lain (cerah, cerah berawan, berawan) dianggap cerah.
   static KelasKondisi kelasKondisi(int kode) {
     if (kode == 45 || kode == 48) return KelasKondisi.kabut;
     if (kode >= 51 && kode <= 57) return KelasKondisi.gerimis;
@@ -248,7 +306,8 @@ abstract class Activity {
     return KelasKondisi.cerah;
   }
 
-  // Faktor "Kondisi" dari tabel kondisi milik tiap aktivitas
+  // Faktor "Kondisi" dari tabel kondisi milik tiap aktivitas (_peta di tiap subclass):
+  // kelompok kondisi -> status. Contoh Jemur: cerah Bagus, kabut Sedang, hujan Buruk.
   static FactorResult faktorKondisi(
     int kode,
     Map<KelasKondisi, Status> peta,
@@ -276,6 +335,13 @@ abstract class Activity {
 // ---------------------------------------------------------------------------
 class JemurActivity extends Activity {
   const JemurActivity();
+
+  // Faktor Jemur (jumlah bobot 100):
+  //   Peluang hujan 30 (PENENTU): sampai 20% Bagus, sampai 50% Sedang, di atas itu Buruk
+  //   Kondisi       15          : cerah Bagus, kabut Sedang, gerimis/hujan/badai Buruk
+  //   UV            30          : 5 ke atas Bagus, 3 sampai 4,9 Sedang, di bawah 3 Buruk
+  //   Kelembapan    25          : sampai 65% Bagus, sampai 80% Sedang, di atas itu Buruk
+  // Hujan dijadikan penentu karena sepanas apa pun, jemuran yang kehujanan basah lagi.
 
   static const Map<KelasKondisi, Status> _peta = {
     KelasKondisi.cerah: Status.bagus,
@@ -361,6 +427,12 @@ class JemurActivity extends Activity {
 class MotorActivity extends Activity {
   const MotorActivity();
 
+  // Faktor Motor (jumlah bobot 100):
+  //   Peluang hujan 40 (PENENTU): sampai 20% Bagus, sampai 50% Sedang, di atas itu Buruk
+  //   Kondisi       35 (PENENTU): cerah Bagus, gerimis Sedang, kabut/hujan/badai Buruk
+  //   Angin         25          : sampai 20 km/j Bagus, sampai 35 Sedang, di atas itu Buruk
+  // Dua faktor penentu karena motor paling terganggu hujan dan jarak pandang.
+
   static const Map<KelasKondisi, Status> _peta = {
     KelasKondisi.cerah: Status.bagus,
     KelasKondisi.kabut: Status.buruk,
@@ -436,6 +508,12 @@ class MotorActivity extends Activity {
 class MobilActivity extends Activity {
   const MobilActivity();
 
+  // Faktor Mobil (jumlah bobot 100):
+  //   Peluang hujan 30: sampai 40% Bagus, sampai 70% Sedang, di atas itu Buruk
+  //   Kondisi       50: cerah dan gerimis Bagus, kabut dan hujan Sedang, badai Buruk
+  //   Angin         20: sampai 30 km/j Bagus, sampai 50 Sedang, di atas itu Buruk
+  // Tidak ada faktor penentu karena mobil lebih toleran; hanya badai petir yang membatasi skor.
+
   static const Map<KelasKondisi, Status> _peta = {
     KelasKondisi.cerah: Status.bagus,
     KelasKondisi.kabut: Status.sedang,
@@ -509,6 +587,13 @@ class MobilActivity extends Activity {
 // ---------------------------------------------------------------------------
 class OutdoorActivity extends Activity {
   const OutdoorActivity();
+
+  // Faktor Outdoor (jumlah bobot 100):
+  //   Peluang hujan 30 (PENENTU): sampai 20% Bagus, sampai 50% Sedang, di atas itu Buruk
+  //   Kondisi       20 (PENENTU): cerah Bagus, kabut dan gerimis Sedang, hujan/badai Buruk
+  //   Suhu          30          : 22 sampai 30 Bagus, 18 sampai 21 atau 31 sampai 34 Sedang,
+  //                               di bawah 18 atau 35 ke atas Buruk
+  //   UV            20          : sampai 5 Bagus, 6 sampai 7 Sedang, 8 ke atas Buruk
 
   static const Map<KelasKondisi, Status> _peta = {
     KelasKondisi.cerah: Status.bagus,

@@ -67,7 +67,8 @@ class _ActivityScreenState extends State<ActivityScreen> {
     'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
   ];
 
-  // Menit 30 ke atas naik ke jam berikutnya (maksimal 23)
+  // Jam yang dipilih dibulatkan ke jam terdekat karena data cuaca per jam.
+  // Menit 30 ke atas naik ke jam berikutnya (maksimal 23). Contoh: 09.20 -> 9, 09.40 -> 10.
   int get _jamDinilai {
     final jam = _waktu.minute >= 30 ? _waktu.hour + 1 : _waktu.hour;
     return jam > 23 ? 23 : jam;
@@ -124,7 +125,9 @@ class _ActivityScreenState extends State<ActivityScreen> {
     });
 
     try {
+      // 1) Ambil prakiraan per jam kota ini (memakai cache bila offline)
       final data = await ApiService.getWeather(kota.lat, kota.lon);
+      // 2) Nilai aktivitas pada hari dan jam terpilih dengan mesin Activity (models/activity.dart)
       final hasil = _aktivitas.analyze(data, _hari, _jamDinilai);
       if (!mounted) return;
       setState(() {
