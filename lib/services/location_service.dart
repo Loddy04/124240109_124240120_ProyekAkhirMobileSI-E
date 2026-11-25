@@ -27,6 +27,21 @@ class InfoKota {
   const InfoKota({required this.nama, required this.kandidat});
 }
 
+// Satu kota beserta jaraknya dari posisi pengguna (untuk Favorit Terdekat)
+class KotaTerdekat {
+  final String nama;
+  final double lat;
+  final double lon;
+  final double meter;
+
+  const KotaTerdekat({
+    required this.nama,
+    required this.lat,
+    required this.lon,
+    required this.meter,
+  });
+}
+
 // Layanan lokasi (F15, LBS, Modul VII). Semua method static.
 // Privasi: lokasi hanya dipakai untuk mencari nama kota dan mengambil cuaca, tidak disimpan.
 class LocationService {
@@ -131,6 +146,38 @@ class LocationService {
         timeLimit: Duration(seconds: 15),
       ),
     );
+  }
+
+  // Apakah izin dan layanan lokasi sudah siap, tanpa memunculkan permintaan izin.
+  // Dipakai Beranda untuk mengambil posisi otomatis hanya bila pengguna sudah mengizinkan.
+  static Future<bool> sudahDiizinkan() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return false;
+      final izin = await Geolocator.checkPermission();
+      return izin == LocationPermission.whileInUse || izin == LocationPermission.always;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Mengurutkan kota dari yang terdekat ke posisi (lat, lon) dan mengambil paling banyak
+  // [maks] kota (Favorit Terdekat, F15).
+  static List<KotaTerdekat> urutTerdekat(
+    double lat,
+    double lon,
+    List<({String nama, double lat, double lon})> daftar, {
+    int maks = 5,
+  }) {
+    final hasil = [
+      for (final k in daftar)
+        KotaTerdekat(
+          nama: k.nama,
+          lat: k.lat,
+          lon: k.lon,
+          meter: jarak(lat, lon, k.lat, k.lon),
+        ),
+    ]..sort((a, b) => a.meter.compareTo(b.meter));
+    return hasil.take(maks).toList();
   }
 
   // Jarak dua titik dalam meter (dihitung oleh paket geolocator)

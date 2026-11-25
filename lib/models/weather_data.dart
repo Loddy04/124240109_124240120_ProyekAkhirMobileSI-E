@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'weather_advice.dart';
 
-// Model data cuaca dari Open-Meteo (dipakai F2, F3, F9, F14, F15, F16).
+// Model data cuaca dari Open-Meteo (dipakai F2, F3, F7, F14, F15).
 // Pemetaan weather_code ditulis sekali di sini dan dipakai semua halaman.
 class WeatherData {
   // Suhu saat ini dalam Celsius. Dibuat private agar hanya bisa diubah
@@ -201,13 +200,13 @@ class WeatherData {
     return '03d';
   }
 
-  // ---- Data turunan untuk Beranda dan Skor Payung ----
+  // ---- Data turunan untuk Beranda ----
 
   // Indeks UV maksimum hari ini (elemen pertama daftar harian)
   double get uvIndex => dailyUv.isNotEmpty ? dailyUv.first : 0;
 
   // Peluang hujan terbesar pada jam aktif 06.00 sampai 22.00 hari ini.
-  // Dipakai untuk rumus Skor Payung (F9) dan info peluang hujan di Beranda.
+  // Dipakai untuk info peluang hujan di kartu Beranda.
   int get maxRainChance {
     if (currentTime.length < 10) return 0;
     final today = currentTime.substring(0, 10);
@@ -224,31 +223,6 @@ class WeatherData {
     }
     return maks;
   }
-
-  // Skor Payung 0 sampai 100 (F9):
-  // 70% dari peluang hujan terbesar + bonus kode cuaca + bonus angin, maksimal 100
-  int get umbrellaScore {
-    final bonusAngin = windSpeed >= 30 ? 10 : 0;
-    final skor = (maxRainChance * 0.7).round() + _codeBonus(weatherCode) + bonusAngin;
-    return skor > 100 ? 100 : skor;
-  }
-
-  // Saran payung dari skor; tipenya WeatherAdvice (polymorphism)
-  WeatherAdvice get advice => WeatherAdvice.fromScore(umbrellaScore);
-
-  // Bonus skor menurut kode cuaca: gerimis 10, hujan 20, badai 30
-  static int _codeBonus(int code) {
-    if (code >= 95 && code <= 99) return 30;
-    if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return 20;
-    if (code >= 51 && code <= 57) return 10;
-    return 0;
-  }
-
-  // Cuaca ekstrem: badai petir (kode 95-99), angin >= 40 km/jam, atau UV >= 8
-  bool get isExtreme =>
-      (weatherCode >= 95 && weatherCode <= 99) ||
-      windSpeed >= 40 ||
-      uvIndex >= 8;
 
   // ---- Pembantu parsing: nilai null atau tipe lain diganti nilai bawaan ----
 

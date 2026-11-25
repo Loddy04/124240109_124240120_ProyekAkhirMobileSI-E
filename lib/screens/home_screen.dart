@@ -4,12 +4,16 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../api/api_service.dart';
 import '../models/favorite_city.dart';
+import '../models/reminder.dart';
 import '../models/weather_data.dart';
 import '../services/location_service.dart';
+import '../services/pengingat_berikutnya.dart';
 import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/advice_card.dart';
+import '../widgets/home_sections.dart';
+import '../widgets/nearby_favorites_card.dart';
 import '../widgets/weather_card.dart';
+import 'activity_screen.dart';
 import 'detail_screen.dart';
 
 // Satu halaman pada slider Beranda: kota favorit atau kartu sementara Lokasi Saya
@@ -40,7 +44,7 @@ class _KotaBeranda {
 }
 
 // Beranda (tab 1): kartu cuaca yang bisa digeser antar kota favorit
-// beserta Skor Payung kota yang sedang tampil (F2, F9).
+// beserta ringkasan cuaca kota yang sedang tampil (F2).
 class HomeScreen extends StatefulWidget {
   // Nama lengkap dari Root untuk sapaan. Opsional agar Beranda tetap jalan sendiri.
   final String namaLengkap;
@@ -69,6 +73,13 @@ class _HomeScreenState extends State<HomeScreen> {
   static bool _privasiDitunjukkan = false;
   static bool _otomatisDicoba = false;
 
+  // Favorit Terdekat (F15). Posisi hanya disimpan di memori selama aplikasi berjalan,
+  // tidak ke penyimpanan, dan dipakai ulang maksimal 5 menit.
+  static ({double lat, double lon, DateTime waktu})? _posisiSesi;
+  StatusTerdekat _statusTerdekat = StatusTerdekat.perluIzin;
+  List<KotaTerdekat> _kotaTerdekat = [];
+  final Map<String, WeatherData> _cuacaTerdekat = {};
+
   // Keadaan tiap kota: sudah dimuat, sedang dimuat, atau gagal
   final Map<String, WeatherData> _cuaca = {};
   final Set<String> _sedangMuat = {};
@@ -96,6 +107,8 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _muat(_halaman);
       _muat(_halaman + 1);
+      // Favorit Terdekat: ambil posisi otomatis bila izin lokasi sudah ada
+      _siapkanTerdekat();
       // Belum ada kota favorit: tampilkan cuaca di lokasimu, sekali per aplikasi dibuka
       if (_kota.isEmpty && !_otomatisDicoba) {
         _otomatisDicoba = true;
@@ -158,6 +171,75 @@ class _HomeScreenState extends State<HomeScreen> {
         .where((i) => i >= 0 && i < _kota.length)
         .toList();
     await Future.wait([for (final i in dekat) _muat(i, paksa: true)]);
+  }
+
+  // ---- Favorit Terdekat (F15) ----
+
+  // Pakai posisi yang masih baru, atau ambil otomatis bila pengguna sudah mengizinkan lokasi.
+  // Bila izin belum ada, bagian ini menampilkan ajakan mengaktifkan lokasi.
+  Future<void> _siapkanTerdekat() async {
+    final sesi = _posisiSesi;
+    if (sesi != null && DateTime.now().difference(sesi.waktu).inMinutes < 5) {
+      await _hitungTerdekat(sesi.lat, sesi.lon);
+      return;
+    }
+    if (!await LocationService.sudahDiizinkan() || !mounted) return;
+
+    setState(() => _statusTerdekat = StatusTerdekat.mencari);
+    try {
+      final posisi = await LocationService.getCurrent();
+      if (!mounted) return;
+      await _hitungTerdekat(posisi.latitude, posisi.longitude);
+    } catch (_) {
+      if (mounted) setState(() => _statusTerdekat = StatusTerdekat.perluIzin);
+    }
+  }
+
+  // Urutkan favorit dari yang terdekat (maksimal 5), lalu muat cuaca semuanya sekaligus
+  Future<void> _hitungTerdekat(double lat, double lon) async {
+    _posisiSesi = (lat: lat, lon: lon, waktu: DateTime.now());
+    final favorit = Hive.box<FavoriteCity>('favorites').values;
+    final urut = LocationService.urutTerdekat(
+      lat,
+      lon,
+      [for (final f in favorit) (nama: f.name, lat: f.lat, lon: f.lon)],
+    );
+    if (!mounted) return;
+    setState(() {
+      _kotaTerdekat = urut;
+      _statusTerdekat = StatusTerdekat.siap;
+    });
+
+    // Future.wait: semua cuaca dimuat bersamaan, satu yang gagal tidak membatalkan yang lain
+    await Future.wait([
+      for (final k in urut)
+        ApiService.getWeather(k.lat, k.lon).then<void>((data) {
+          if (mounted) setState(() => _cuacaTerdekat['${k.lat},${k.lon}'] = data);
+        }).catchError((_) {}),
+    ]);
+  }
+
+  void _bukaKotaTerdekat(KotaTerdekat kota) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DetailScreen(
+          latitude: kota.lat,
+          longitude: kota.lon,
+          namaKota: kota.nama,
+          satuan: SettingsService.unit,
+        ),
+      ),
+    );
+  }
+
+  void _bukaAktivitas() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const GlassScaffold(body: ActivityScreen()),
+      ),
+    );
   }
 
   void _bukaDetail(_KotaBeranda kota) {
@@ -246,6 +328,8 @@ class _HomeScreenState extends State<HomeScreen> {
       // Cari kota tempat posisi berada (null bila gagal, mis. offline)
       final info = await LocationService.cariKota(posisi.latitude, posisi.longitude);
       if (!mounted) return;
+      // Favorit Terdekat memakai posisi yang sama
+      _hitungTerdekat(posisi.latitude, posisi.longitude);
       _tampilkanLokasi(posisi.latitude, posisi.longitude, info);
     } on LocationException catch (e) {
       if (!mounted) return;
@@ -380,6 +464,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final c = context.pc;
     final banyak = _kota.length > 1;
     final aktif = _kota.isEmpty ? null : _cuaca[_kota[_halaman].kunci];
+    final sekarang = DateTime.now();
+    final berikutnya = PengingatBerikutnya.cari(Hive.box<Reminder>('reminders').values, sekarang);
+    final tanpaFavorit = Hive.box<FavoriteCity>('favorites').isEmpty;
 
     return Scaffold(
       body: SafeArea(
@@ -477,14 +564,36 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
 
-                // Skor Payung kota yang sedang tampil
-                if (aktif != null)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppTheme.edge, AppTheme.gap, AppTheme.edge, 0,
-                    ),
-                    child: AdviceCard(aktif.advice),
+                // Pratinjau 7 jam dan skor aktivitas untuk kota yang sedang tampil
+                if (aktif != null) ...[
+                  const BerandaJudul('7 jam ke depan'),
+                  PratinjauJam(
+                    data: aktif,
+                    satuan: SettingsService.unit,
+                    onTap: () => _bukaDetail(_kota[_halaman]),
                   ),
+                  const BerandaJudul('Cocok untuk hari ini'),
+                  SkorAktivitasHariIni(data: aktif, onTap: _bukaAktivitas),
+                ],
+
+                // Pengingat yang akan berbunyi paling dulu (hanya bila ada)
+                if (berikutnya != null) ...[
+                  const BerandaJudul('Pengingat berikutnya'),
+                  KartuPengingatBerikutnya(berikutnya: berikutnya, sekarang: sekarang),
+                ],
+
+                // Favorit Terdekat: selalu ada, isinya menyesuaikan keadaan
+                const BerandaJudul('Favorit terdekat'),
+                KartuFavoritTerdekat(
+                  status: tanpaFavorit ? StatusTerdekat.tanpaFavorit : _statusTerdekat,
+                  daftar: [
+                    for (final k in _kotaTerdekat)
+                      ItemTerdekat(k, _cuacaTerdekat['${k.lat},${k.lon}']),
+                  ],
+                  satuan: SettingsService.unit,
+                  onAktifkan: _lokasiSaya,
+                  onTapKota: _bukaKotaTerdekat,
+                ),
               ],
             ),
           ),
