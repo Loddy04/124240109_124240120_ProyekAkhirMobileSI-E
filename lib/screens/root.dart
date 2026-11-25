@@ -10,8 +10,7 @@ import 'profile_screen.dart';
 import 'reminders_screen.dart';
 
 // Kerangka navigasi utama aplikasi dengan 5 tab (F8)
-// Catatan: Tab index 3 adalah placeholder Aktivitas (PBI-089).
-// Loddy yang akan mengganti urutan tab dan menghubungkan ActivityScreen di PBI-088.
+// Urutan tab: Beranda, Kota, Aktivitas, Pengingat, Profil
 class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
 
@@ -27,13 +26,13 @@ class _RootScreenState extends State<RootScreen> {
   Widget build(BuildContext context) {
     final c = context.pc;
 
-    // Daftar 5 halaman tab aplikasi (posisi tab ke-4 placeholder Aktivitas)
+    // Daftar 5 halaman tab aplikasi; urutannya harus sama dengan item menu di bawah
     final List<Widget> pages = [
       // Beranda cuaca (F2); nama dikirim agar sapaan ikut berubah saat diedit di Profil
       HomeScreen(namaLengkap: SettingsService.fullName),
+      const FavoritesScreen(),
       const ActivityScreen(),
       const RemindersScreen(),
-      const FavoritesScreen(),
       ProfileScreen(
         onNameChanged: () {
           setState(() {}); // Segarkan sapaan di Beranda jika nama diedit
@@ -67,6 +66,11 @@ class _RootScreenState extends State<RootScreen> {
                   label: 'Beranda',
                 ),
                 BottomNavigationBarItem(
+                  icon: Icon(Icons.location_city_outlined),
+                  activeIcon: Icon(Icons.location_city_rounded),
+                  label: 'Kota',
+                ),
+                BottomNavigationBarItem(
                   icon: Icon(Icons.event_available_outlined),
                   activeIcon: Icon(Icons.event_available_rounded),
                   label: 'Aktivitas',
@@ -75,11 +79,6 @@ class _RootScreenState extends State<RootScreen> {
                   icon: Icon(Icons.notifications_none_rounded),
                   activeIcon: Icon(Icons.notifications_rounded),
                   label: 'Pengingat',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.location_city_outlined),
-                  activeIcon: Icon(Icons.location_city_rounded),
-                  label: 'Kota',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.person_outline_rounded),
