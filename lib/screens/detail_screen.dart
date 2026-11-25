@@ -223,7 +223,7 @@ class _DetailScreenState extends State<DetailScreen> {
     }
 
     return SizedBox(
-      height: 128,
+      height: 104,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: jumlah,
@@ -245,10 +245,6 @@ class _DetailScreenState extends State<DetailScreen> {
                 Text(
                   _suhu(data.hourlyTemp[idx]),
                   style: TextStyle(color: c.text, fontSize: 16, fontWeight: FontWeight.w800),
-                ),
-                Text(
-                  '${data.hourlyRain[idx]}%',
-                  style: TextStyle(color: c.chipText, fontSize: 12, fontWeight: FontWeight.w700),
                 ),
               ],
             ),
@@ -289,12 +285,19 @@ class _DetailScreenState extends State<DetailScreen> {
               style: TextStyle(color: c.text, fontWeight: FontWeight.w700),
             ),
             subtitle: Text(
-              '${WeatherData.conditionOf(kode)} · hujan $hujan% · ${mm.toStringAsFixed(1)} mm',
+              'hujan $hujan% · ${mm.toStringAsFixed(1)} mm',
               style: TextStyle(color: c.textMuted, fontSize: 12),
             ),
-            trailing: Text(
-              '${_suhu(_ambil(data.dailyMax, i, 0.0))} / ${_suhu(_ambil(data.dailyMin, i, 0.0))}',
-              style: TextStyle(color: c.text, fontWeight: FontWeight.w800),
+            // Kondisi cuaca di kanan (suhu maks dan min tidak ditampilkan)
+            trailing: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 110),
+              child: Text(
+                WeatherData.conditionOf(kode),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: TextStyle(color: c.text, fontWeight: FontWeight.w800, fontSize: 13),
+              ),
             ),
           );
         },

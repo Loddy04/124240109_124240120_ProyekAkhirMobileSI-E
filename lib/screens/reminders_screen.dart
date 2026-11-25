@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../models/reminder.dart';
 import '../services/notification_service.dart';
-import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/permission_dialog.dart';
 import 'add_reminder_screen.dart';
 
 // Layar Daftar Pengingat Cuaca (F6 / PBI-032, PBI-034, PBI-083)
@@ -42,131 +43,39 @@ class _RemindersScreenState extends State<RemindersScreen> {
     super.dispose();
   }
 
+  // Izin notifikasi: cek keadaan sebenarnya ke sistem, bukan penanda tersimpan.
+  // Pop-up muncul bila izin mati, lalu diminta; bila tetap ditolak, arahkan ke pengaturan.
   Future<void> _requestPermissionIfNeeded() async {
-    // Jika user sudah pernah menyetujui izin notifikasi sebelumnya, jangan pernah tampilkan lagi
-    if (SettingsService.notifPermissionGranted) return;
     if (_permAsked) return;
+    if (await NotificationService().isEnabled()) return;
+    if (!mounted) return;
     _permAsked = true;
 
-    // Tampilkan dialog penjelasan dulu sebelum meminta izin sistem
-    if (!mounted) return;
-    final c = context.pc;
-    final isDark = SettingsService.darkMode;
-
-    final shouldRequest = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogCtx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 28),
-        child: GlassCard(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Lingkaran ikon notifikasi yang estetik
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: c.accent.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.notifications_active_rounded,
-                  color: c.accent,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                'Aktifkan Notifikasi',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: c.text,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Payungin akan memberi tahu kondisi cuaca sesuai jadwal yang Anda tentukan agar selalu siap beraktivitas.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: c.textMuted,
-                  height: 1.45,
-                ),
-              ),
-              const SizedBox(height: 24),
-              // Tombol Aksi: Nanti & Izinkan
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        // Mode terang background putih bersih, mode gelap outline transparan
-                        backgroundColor: isDark ? Colors.transparent : Colors.white,
-                        side: BorderSide(
-                          color: isDark ? c.glassBorder : const Color(0xFFD6E4F0),
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppTheme.radiusButton),
-                        ),
-                      ),
-                      onPressed: () {
-                        // User memilih nanti: reset _permAsked agar jika pindah tab dan kembali lagi bisa muncul lagi
-                        _permAsked = false;
-                        Navigator.pop(dialogCtx, false);
-                      },
-                      child: Text(
-                        'Nanti Saja',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? c.textMuted : const Color(0xFF4A5568),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        backgroundColor: c.accent,
-                        // Teks selalu putih kontras dan tebal agar terbaca sangat jelas di mode terang maupun gelap
-                        foregroundColor: Colors.white,
-                        elevation: isDark ? 2 : 0,
-                        shadowColor: c.accent.withValues(alpha: 0.4),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppTheme.radiusButton),
-                        ),
-                      ),
-                      onPressed: () => Navigator.pop(dialogCtx, true),
-                      child: const Text(
-                        'Izinkan',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
+    final setuju = await tampilkanDialogIzin(
+      context,
+      ikon: Icons.notifications_active_rounded,
+      judul: 'Aktifkan Notifikasi',
+      isi: 'Payungin akan memberi tahu kondisi cuaca sesuai jadwal yang Anda tentukan agar selalu siap beraktivitas.',
     );
-
-    if (shouldRequest == true) {
-      // Simpan status bahwa user sudah memberi izin, agar tidak pernah muncul lagi selamanya
-      await SettingsService.setNotifPermissionGranted(true);
-      await NotificationService().requestPermission();
+    if (!setuju) {
+      // Nanti Saja: boleh muncul lagi saat kembali ke tab ini
+      _permAsked = false;
+      return;
     }
+
+    final diizinkan = await NotificationService().requestPermission();
+    if (diizinkan || !mounted) return;
+
+    // Ditolak (termasuk ditolak permanen): tawarkan membuka pengaturan aplikasi
+    final buka = await tampilkanDialogIzin(
+      context,
+      ikon: Icons.notifications_off_outlined,
+      judul: 'Izin Notifikasi Ditolak',
+      isi: 'Izinkan notifikasi lewat pengaturan aplikasi agar pengingat bisa berbunyi.',
+      tombolUtama: 'Buka pengaturan',
+      tombolKedua: 'Batal',
+    );
+    if (buka) await Geolocator.openAppSettings();
   }
 
   // Format tanggal pengingat untuk tampilan kartu

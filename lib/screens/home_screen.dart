@@ -12,8 +12,8 @@ import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/home_sections.dart';
 import '../widgets/nearby_favorites_card.dart';
+import '../widgets/permission_dialog.dart';
 import '../widgets/weather_card.dart';
-import 'activity_screen.dart';
 import 'detail_screen.dart';
 
 // Satu halaman pada slider Beranda: kota favorit atau kartu sementara Lokasi Saya
@@ -219,29 +219,6 @@ class _HomeScreenState extends State<HomeScreen> {
     ]);
   }
 
-  void _bukaKotaTerdekat(KotaTerdekat kota) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => DetailScreen(
-          latitude: kota.lat,
-          longitude: kota.lon,
-          namaKota: kota.nama,
-          satuan: SettingsService.unit,
-        ),
-      ),
-    );
-  }
-
-  void _bukaAktivitas() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const GlassScaffold(body: ActivityScreen()),
-      ),
-    );
-  }
-
   void _bukaDetail(_KotaBeranda kota) {
     Navigator.push(
       context,
@@ -265,27 +242,16 @@ class _HomeScreenState extends State<HomeScreen> {
   // Dialog privasi sebelum meminta izin; true bila pengguna melanjutkan
   Future<bool> _setujuPrivasi() async {
     if (_privasiDitunjukkan) return true;
-    final lanjut = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Izin lokasi'),
-        content: const Text(
-          'Lokasi dipakai untuk mencari nama kotamu (lewat OpenStreetMap) dan mengambil cuaca dari Open-Meteo. Lokasi tidak disimpan.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Batal'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Lanjut'),
-          ),
-        ],
-      ),
+    final lanjut = await tampilkanDialogIzin(
+      context,
+      ikon: Icons.my_location_rounded,
+      judul: 'Izin Lokasi',
+      isi: 'Lokasi dipakai untuk mencari nama kotamu (lewat OpenStreetMap) dan mengambil cuaca dari Open-Meteo. Lokasi tidak disimpan.',
+      tombolUtama: 'Lanjut',
+      tombolKedua: 'Batal',
     );
-    if (lanjut == true) _privasiDitunjukkan = true;
-    return lanjut == true;
+    if (lanjut) _privasiDitunjukkan = true;
+    return lanjut;
   }
 
   // Dialog dengan tombol menuju pengaturan (GPS mati atau izin ditolak permanen)
@@ -294,27 +260,16 @@ class _HomeScreenState extends State<HomeScreen> {
     required String isi,
     required String tombol,
     required Future<bool> Function() buka,
-  }) {
-    return showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(judul),
-        content: Text(isi),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Batal'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              buka();
-            },
-            child: Text(tombol),
-          ),
-        ],
-      ),
+  }) async {
+    final lanjut = await tampilkanDialogIzin(
+      context,
+      ikon: Icons.location_off_outlined,
+      judul: judul,
+      isi: isi,
+      tombolUtama: tombol,
+      tombolKedua: 'Batal',
     );
+    if (lanjut) await buka();
   }
 
   // Tombol Lokasi Saya: izin, ambil posisi, cari nama kotanya, lalu tampilkan kartunya.
@@ -419,7 +374,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Tombol kecil di bawah sapaan
+  // Tombol kecil di sebelah kanan sapaan
   Widget _tombolLokasi(PayunginColors c) {
     final radius = BorderRadius.circular(AppTheme.radiusChip + 6);
     return InkWell(
@@ -440,7 +395,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 : Icon(Icons.my_location_rounded, size: 18, color: c.chipText),
             const SizedBox(width: 8),
             Text(
-              _mencariLokasi ? 'Mencari lokasi...' : 'Lokasi Saya',
+              _mencariLokasi ? 'Mencari...' : 'Lokasi Saya',
               style: TextStyle(
                 color: c.chipText,
                 fontWeight: FontWeight.w700,
@@ -481,27 +436,35 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppTheme.edge),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      Text(
-                        _tanggalHariIni(),
-                        style: TextStyle(
-                          color: c.textMuted,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _tanggalHariIni(),
+                              style: TextStyle(
+                                color: c.textMuted,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Halo, ${widget.namaLengkap}!',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: c.text,
+                                fontSize: 26,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Halo, ${widget.namaLengkap}!',
-                        style: TextStyle(
-                          color: c.text,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
+                      const SizedBox(width: 12),
                       _tombolLokasi(c),
                     ],
                   ),
@@ -567,13 +530,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 // Pratinjau 7 jam dan skor aktivitas untuk kota yang sedang tampil
                 if (aktif != null) ...[
                   const BerandaJudul('7 jam ke depan'),
-                  PratinjauJam(
-                    data: aktif,
-                    satuan: SettingsService.unit,
-                    onTap: () => _bukaDetail(_kota[_halaman]),
-                  ),
+                  PratinjauJam(data: aktif, satuan: SettingsService.unit),
                   const BerandaJudul('Cocok untuk hari ini'),
-                  SkorAktivitasHariIni(data: aktif, onTap: _bukaAktivitas),
+                  SkorAktivitasHariIni(data: aktif),
                 ],
 
                 // Pengingat yang akan berbunyi paling dulu (hanya bila ada)
@@ -592,7 +551,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                   satuan: SettingsService.unit,
                   onAktifkan: _lokasiSaya,
-                  onTapKota: _bukaKotaTerdekat,
                 ),
               ],
             ),

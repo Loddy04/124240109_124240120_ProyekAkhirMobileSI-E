@@ -27,7 +27,6 @@ class KartuFavoritTerdekat extends StatelessWidget {
   final List<ItemTerdekat> daftar;
   final String satuan;
   final VoidCallback? onAktifkan;
-  final void Function(KotaTerdekat kota)? onTapKota;
 
   const KartuFavoritTerdekat({
     super.key,
@@ -35,7 +34,6 @@ class KartuFavoritTerdekat extends StatelessWidget {
     this.daftar = const [],
     this.satuan = 'C',
     this.onAktifkan,
-    this.onTapKota,
   });
 
   String _suhu(double celsius) {
@@ -123,47 +121,44 @@ class KartuFavoritTerdekat extends StatelessWidget {
 
   Widget _baris(PayunginColors c, ItemTerdekat item) {
     final cuaca = item.cuaca;
-    return InkWell(
-      onTap: onTapKota == null ? null : () => onTapKota!(item.kota),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
-          children: [
-            Icon(Icons.favorite_rounded, color: c.favorite, size: 18),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.kota.nama,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: c.text, fontSize: 15, fontWeight: FontWeight.w700),
-                  ),
-                  Text(
-                    LocationService.formatJarak(item.kota.meter),
-                    style: TextStyle(color: c.textMuted, fontSize: 12.5),
-                  ),
-                ],
-              ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Icon(Icons.favorite_rounded, color: c.favorite, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.kota.nama,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: c.text, fontSize: 15, fontWeight: FontWeight.w700),
+                ),
+                Text(
+                  LocationService.formatJarak(item.kota.meter),
+                  style: TextStyle(color: c.textMuted, fontSize: 12.5),
+                ),
+              ],
             ),
-            if (cuaca == null)
-              SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2, color: c.textMuted),
-              )
-            else ...[
-              Icon(cuaca.icon, color: c.accent, size: 20),
-              const SizedBox(width: 6),
-              Text(
-                _suhu(cuaca.tempC),
-                style: TextStyle(color: c.text, fontSize: 15, fontWeight: FontWeight.w800),
-              ),
-            ],
+          ),
+          if (cuaca == null)
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: c.textMuted),
+            )
+          else ...[
+            Icon(cuaca.icon, color: c.accent, size: 20),
+            const SizedBox(width: 6),
+            Text(
+              _suhu(cuaca.tempC),
+              style: TextStyle(color: c.text, fontSize: 15, fontWeight: FontWeight.w800),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

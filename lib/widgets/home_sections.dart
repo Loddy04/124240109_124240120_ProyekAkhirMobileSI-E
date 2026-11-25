@@ -34,9 +34,8 @@ class BerandaJudul extends StatelessWidget {
 class PratinjauJam extends StatelessWidget {
   final WeatherData data;
   final String satuan;
-  final VoidCallback? onTap;
 
-  const PratinjauJam({super.key, required this.data, this.satuan = 'C', this.onTap});
+  const PratinjauJam({super.key, required this.data, this.satuan = 'C'});
 
   String _suhu(double celsius) {
     final nilai = satuan == 'F' ? celsius * 9 / 5 + 32 : celsius;
@@ -73,7 +72,6 @@ class PratinjauJam extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppTheme.edge),
       child: GlassCard(
-        onTap: onTap,
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
         child: Row(
           children: [
@@ -92,11 +90,6 @@ class PratinjauJam extends StatelessWidget {
                       _suhu(data.hourlyTemp[awal + i]),
                       style: TextStyle(color: c.text, fontSize: 15, fontWeight: FontWeight.w800),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${data.hourlyRain[awal + i]}%',
-                      style: TextStyle(color: c.chipText, fontSize: 11.5, fontWeight: FontWeight.w700),
-                    ),
                   ],
                 ),
               ),
@@ -110,9 +103,8 @@ class PratinjauJam extends StatelessWidget {
 // Skor tiap aktivitas untuk jam sekarang hari ini, dari mesin Aktivitas (F7)
 class SkorAktivitasHariIni extends StatelessWidget {
   final WeatherData data;
-  final VoidCallback? onTap;
 
-  const SkorAktivitasHariIni({super.key, required this.data, this.onTap});
+  const SkorAktivitasHariIni({super.key, required this.data});
 
   static const Map<String, String> _namaPendek = {
     'jemur': 'Jemur',
@@ -127,20 +119,23 @@ class SkorAktivitasHariIni extends StatelessWidget {
     return (int.tryParse(data.currentTime.substring(11, 13)) ?? DateTime.now().hour).clamp(0, 23);
   }
 
-  Color _warna(PayunginColors c, String tingkat) {
+  // Mode gelap memakai warna tema. Mode terang memakai warna yang lebih lembut
+  // agar angka skor tidak terlalu kontras di atas kartu.
+  Color _warna(PayunginColors c, String tingkat, bool gelap) {
     switch (tingkat) {
       case 'Cocok':
-        return c.scoreGood;
+        return gelap ? c.scoreGood : const Color(0xFF4DB784);
       case 'Cukup':
-        return c.scoreWarn;
+        return gelap ? c.scoreWarn : const Color(0xFFE0A93B);
       default:
-        return c.scoreBad;
+        return gelap ? c.scoreBad : const Color(0xFFE57373);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.pc;
+    final gelap = Theme.of(context).brightness == Brightness.dark;
     final jam = _jam();
 
     // Satu hasil per aktivitas; yang gagal dihitung dilewati agar Beranda tidak crash
@@ -155,7 +150,6 @@ class SkorAktivitasHariIni extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppTheme.edge),
       child: GlassCard(
-        onTap: onTap,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
         child: Row(
           children: [
@@ -173,7 +167,7 @@ class SkorAktivitasHariIni extends StatelessWidget {
                     Text(
                       '${e.value.skor}',
                       style: TextStyle(
-                        color: _warna(c, e.value.tingkat),
+                        color: _warna(c, e.value.tingkat, gelap),
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
                       ),
@@ -181,7 +175,7 @@ class SkorAktivitasHariIni extends StatelessWidget {
                     Text(
                       e.value.tingkat,
                       style: TextStyle(
-                        color: _warna(c, e.value.tingkat),
+                        color: _warna(c, e.value.tingkat, gelap),
                         fontSize: 11.5,
                         fontWeight: FontWeight.w700,
                       ),

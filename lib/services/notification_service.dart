@@ -86,6 +86,16 @@ class NotificationService {
     return granted ?? false;
   }
 
+  // ---- Cek izin notifikasi yang sebenarnya ke sistem (tanpa meminta) ----
+  // Platform selain Android dianggap sudah aktif agar tidak memunculkan pop-up.
+  Future<bool> isEnabled() async {
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    if (android == null) return true;
+    return await android.areNotificationsEnabled() ?? false;
+  }
+
   // ---- Jadwalkan notifikasi pengingat harian -------------------------------
   // ID notifikasi = reminder.key (Hive int) untuk memudahkan cancel.
   // Jika waktu sudah lewat hari ini → jadwalkan besok.
