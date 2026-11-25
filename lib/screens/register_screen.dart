@@ -117,9 +117,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       await prefs.remove('profileImagePath');
       await prefs.setBool('darkMode', false);
       await prefs.setString('tempUnit', 'C');
-      await prefs.setString('mainCity', 'Yogyakarta');
-      await prefs.setDouble('mainLat', -7.79);
-      await prefs.setDouble('mainLon', 110.36);
+      // Kota utama dikosongkan: akun baru menentukannya lewat lokasi GPS di Beranda
+      await prefs.remove('mainCity');
+      await prefs.remove('mainLat');
+      await prefs.remove('mainLon');
       SettingsService.themeModeNotifier.value = ThemeMode.light;
 
       // 4. Simpan data kredensial akun baru ke SharedPreferences

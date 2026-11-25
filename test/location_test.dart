@@ -47,6 +47,84 @@ void main() {
     });
   });
 
+  group('radius cadangan 3 km', () {
+    test('warga Sleman (8 km dari pusat Yogyakarta) tidak lagi dianggap di Yogyakarta', () {
+      final i = LocationService.indeksTerdekat(
+        sleman.lat, sleman.lon, <Titik>[yogyakarta],
+      );
+      expect(i, isNull);
+    });
+
+    test('titik dekat UGM (sekitar 3 km) tetap dianggap di Yogyakarta', () {
+      final i = LocationService.indeksTerdekat(-7.77, 110.375, <Titik>[yogyakarta]);
+      expect(i, 0);
+    });
+  });
+
+  group('normalkanNama', () {
+    test('awalan Kota dan Kabupaten dibuang, huruf dikecilkan', () {
+      expect(LocationService.normalkanNama('Kota Yogyakarta'), 'yogyakarta');
+      expect(LocationService.normalkanNama('Kabupaten Sleman'), 'sleman');
+      expect(LocationService.normalkanNama('Sleman'), 'sleman');
+      expect(LocationService.normalkanNama('  Bantul '), 'bantul');
+    });
+
+    test('nama yang diawali kata mirip tidak ikut terpotong', () {
+      expect(LocationService.normalkanNama('Kotamobagu'), 'kotamobagu');
+    });
+  });
+
+  group('infoDariAlamat (hasil Nominatim)', () {
+    test('Sleman kota: town dan county sama, nama Sleman', () {
+      final info = LocationService.infoDariAlamat(
+        {'village': 'Tridadi', 'town': 'Sleman', 'county': 'Sleman'},
+      );
+      expect(info!.nama, 'Sleman');
+      expect(info.kandidat, ['sleman']);
+    });
+
+    test('Condongcatur: hanya county, jadi kabupaten Sleman bukan Yogyakarta', () {
+      final info = LocationService.infoDariAlamat(
+        {'village': 'Condongcatur', 'county': 'Sleman', 'state': 'Daerah Istimewa Yogyakarta'},
+      );
+      expect(info!.nama, 'Sleman');
+      expect(info.kandidat, ['sleman']);
+    });
+
+    test('Kota Yogyakarta: awalan Kota dibuang dari nama tampilan', () {
+      final info = LocationService.infoDariAlamat(
+        {'suburb': 'Suryatmajan', 'city': 'Kota Yogyakarta', 'district': 'Depok'},
+      );
+      expect(info!.nama, 'Yogyakarta');
+      expect(info.kandidat, ['yogyakarta']);
+    });
+
+    test('tanpa kota atau kabupaten menghasilkan null', () {
+      expect(LocationService.infoDariAlamat({'state': 'Jawa Tengah'}), isNull);
+      expect(LocationService.infoDariAlamat({'county': '  '}), isNull);
+    });
+  });
+
+  group('indeksNama (cocokkan kota GPS dengan slider)', () {
+    test('GPS di Sleman dan favorit Sleman ada: geser ke Sleman', () {
+      final i = LocationService.indeksNama(
+        ['Yogyakarta', 'Sleman', 'Semarang'],
+        ['sleman'],
+      );
+      expect(i, 1);
+    });
+
+    test('nama di slider berawalan Kota tetap cocok', () {
+      final i = LocationService.indeksNama(['Kota Yogyakarta'], ['yogyakarta']);
+      expect(i, 0);
+    });
+
+    test('GPS di Sleman tapi hanya Yogyakarta di slider: tidak cocok (kartu sementara)', () {
+      final i = LocationService.indeksNama(['Yogyakarta', 'Semarang'], ['sleman']);
+      expect(i, isNull);
+    });
+  });
+
   group('jarak dan formatJarak', () {
     test('jarak Yogyakarta ke Sleman sekitar 8 km', () {
       final meter = LocationService.jarak(

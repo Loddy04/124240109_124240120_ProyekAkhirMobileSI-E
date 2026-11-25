@@ -12,22 +12,24 @@ import '../widgets/advice_card.dart';
 import '../widgets/weather_card.dart';
 import 'detail_screen.dart';
 
-// Satu halaman pada slider Beranda: kota Beranda, favorit, atau kartu sementara Lokasi Saya
+// Satu halaman pada slider Beranda: kota favorit atau kartu sementara Lokasi Saya
 class _KotaBeranda {
   final String nama;
   final double lat;
   final double lon;
-  final bool utama;
 
   // true untuk kartu Lokasi Saya yang tidak disimpan dan hilang saat Beranda dibuat ulang
   final bool sementara;
+
+  // Teks lencana kartu sementara; bila kosong dipakai koordinat
+  final String? keterangan;
 
   const _KotaBeranda({
     required this.nama,
     required this.lat,
     required this.lon,
-    this.utama = false,
     this.sementara = false,
+    this.keterangan,
   });
 
   // Pengenal untuk menyimpan cuaca kota ini
@@ -37,7 +39,7 @@ class _KotaBeranda {
   String get koordinatTeks => '${lat.toStringAsFixed(3)}, ${lon.toStringAsFixed(3)}';
 }
 
-// Beranda (tab 1): kartu cuaca yang bisa digeser antar kota (kota Beranda dan favorit)
+// Beranda (tab 1): kartu cuaca yang bisa digeser antar kota favorit
 // beserta Skor Payung kota yang sedang tampil (F2, F9).
 class HomeScreen extends StatefulWidget {
   // Nama lengkap dari Root untuk sapaan. Opsional agar Beranda tetap jalan sendiri.
@@ -50,14 +52,22 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Daftar kota pada slider: kota Beranda dulu, lalu favorit
+  // Daftar kota pada slider: favorit, dan kartu sementara Lokasi Saya di depan bila ada
   late final List<_KotaBeranda> _kota;
   late final PageController _controller;
   int _halaman = 0;
 
-  // Lokasi Saya: sedang mencari posisi, dan apakah dialog privasi sudah ditunjukkan
+  // Lokasi Saya: sedang mencari posisi
   bool _mencariLokasi = false;
-  bool _privasiDitunjukkan = false;
+
+  // Diingat selama aplikasi berjalan. Beranda dibuat ulang tiap pindah tab, jadi
+  // kartu terakhir yang dilihat disimpan di sini agar tidak kembali ke kartu pertama.
+  // Kartu sementara tidak diingat.
+  static String? _kartuTerakhir;
+
+  // Dialog privasi cukup ditunjukkan sekali, dan lokasi otomatis dicoba sekali
+  static bool _privasiDitunjukkan = false;
+  static bool _otomatisDicoba = false;
 
   // Keadaan tiap kota: sudah dimuat, sedang dimuat, atau gagal
   final Map<String, WeatherData> _cuaca = {};
@@ -77,12 +87,20 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _kota = _susunKota();
+    // Kembali ke kartu terakhir yang dilihat; bila tidak ada lagi, mulai dari kartu pertama
+    final awal = _kota.indexWhere((k) => k.kunci == _kartuTerakhir);
+    _halaman = awal < 0 ? 0 : awal;
     // Satu halaman selebar layar: tepi kartu kota lain tidak terlihat
-    _controller = PageController();
+    _controller = PageController(initialPage: _halaman);
     // Muat kota yang tampil dan satu di sebelahnya setelah layar siap
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _muat(0);
-      _muat(1);
+      _muat(_halaman);
+      _muat(_halaman + 1);
+      // Belum ada kota favorit: tampilkan cuaca di lokasimu, sekali per aplikasi dibuka
+      if (_kota.isEmpty && !_otomatisDicoba) {
+        _otomatisDicoba = true;
+        _lokasiSaya();
+      }
     });
   }
 
@@ -92,19 +110,10 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // Kota Beranda lebih dulu, lalu favorit yang namanya berbeda
+  // Kota favorit (nama yang sama hanya sekali). Tidak ada kota bawaan.
   List<_KotaBeranda> _susunKota() {
-    final utama = SettingsService.mainCity;
-    final daftar = <_KotaBeranda>[
-      _KotaBeranda(
-        nama: utama,
-        lat: SettingsService.mainLat,
-        lon: SettingsService.mainLon,
-        utama: true,
-      ),
-    ];
-
-    final sudahAda = <String>{utama.toLowerCase()};
+    final daftar = <_KotaBeranda>[];
+    final sudahAda = <String>{};
     for (final kota in Hive.box<FavoriteCity>('favorites').values) {
       if (sudahAda.add(kota.name.toLowerCase())) {
         daftar.add(_KotaBeranda(nama: kota.name, lat: kota.lat, lon: kota.lon));
@@ -179,7 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Izin lokasi'),
         content: const Text(
-          'Lokasi hanya dipakai untuk mengambil cuaca dari Open-Meteo dan tidak disimpan.',
+          'Lokasi dipakai untuk mencari nama kotamu (lewat OpenStreetMap) dan mengambil cuaca dari Open-Meteo. Lokasi tidak disimpan.',
         ),
         actions: [
           TextButton(
@@ -226,15 +235,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Tombol Lokasi Saya: izin, ambil posisi, lalu tampilkan kartunya di slider
+  // Tombol Lokasi Saya: izin, ambil posisi, cari nama kotanya, lalu tampilkan kartunya.
+  // Kota dari GPS tidak pernah disimpan.
   Future<void> _lokasiSaya() async {
     if (!await _setujuPrivasi() || !mounted) return;
 
     setState(() => _mencariLokasi = true);
     try {
       final posisi = await LocationService.getCurrent();
+      // Cari kota tempat posisi berada (null bila gagal, mis. offline)
+      final info = await LocationService.cariKota(posisi.latitude, posisi.longitude);
       if (!mounted) return;
-      _tampilkanLokasi(posisi.latitude, posisi.longitude);
+      _tampilkanLokasi(posisi.latitude, posisi.longitude, info);
     } on LocationException catch (e) {
       if (!mounted) return;
       switch (e.type) {
@@ -262,15 +274,22 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Bila posisi dekat kota di slider: geser ke kartu itu. Bila tidak: kartu sementara di depan.
-  void _tampilkanLokasi(double lat, double lon) {
-    // Buang kartu sementara lama, lalu cari kota di slider yang cukup dekat
+  // Bila kota GPS ada di slider: geser ke kartu itu. Bila tidak: kartu sementara di depan.
+  void _tampilkanLokasi(double lat, double lon, InfoKota? info) {
+    // Buang kartu sementara lama, lalu cari kota GPS di slider
     final tetap = _kota.where((k) => !k.sementara).toList();
-    final i = LocationService.indeksTerdekat(
-      lat,
-      lon,
-      [for (final k in tetap) (lat: k.lat, lon: k.lon)],
-    );
+    final int? i;
+    if (info != null) {
+      // Dicocokkan lewat nama kota, bukan jarak ke pusat kota
+      i = LocationService.indeksNama([for (final k in tetap) k.nama], info.kandidat);
+    } else {
+      // Nama kota tidak bisa dicari: cadangan memakai jarak ke pusat kota
+      i = LocationService.indeksTerdekat(
+        lat,
+        lon,
+        [for (final k in tetap) (lat: k.lat, lon: k.lon)],
+      );
+    }
 
     setState(() {
       _kota
@@ -279,7 +298,13 @@ class _HomeScreenState extends State<HomeScreen> {
       if (i == null) {
         _kota.insert(
           0,
-          _KotaBeranda(nama: 'Lokasi Saya', lat: lat, lon: lon, sementara: true),
+          _KotaBeranda(
+            nama: info?.nama ?? 'Lokasi Saya',
+            lat: lat,
+            lon: lon,
+            sementara: true,
+            keterangan: info != null ? 'Lokasi Saya' : null,
+          ),
         );
       }
       _halaman = i ?? 0;
@@ -301,9 +326,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
     _muat(tujuan);
     _muat(tujuan + 1);
-    _pesan(i != null
-        ? 'Kamu berada di dekat ${tetap[i].nama}.'
-        : 'Menampilkan cuaca di lokasimu.');
+    if (i != null) {
+      _pesan('Kamu berada di ${tetap[i].nama}.');
+    } else if (info != null) {
+      _pesan('Kamu berada di ${info.nama}. Kota ini belum ada di favorit.');
+    } else {
+      _pesan('Menampilkan cuaca di lokasimu.');
+    }
   }
 
   // Tombol kecil di bawah sapaan
@@ -350,7 +379,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final c = context.pc;
     final banyak = _kota.length > 1;
-    final aktif = _cuaca[_kota[_halaman].kunci];
+    final aktif = _kota.isEmpty ? null : _cuaca[_kota[_halaman].kunci];
 
     return Scaffold(
       body: SafeArea(
@@ -392,13 +421,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: AppTheme.gap + 4),
 
+                // Belum ada kota sama sekali: ajakan memilih kota
+                if (_kota.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppTheme.edge),
+                    child: _kartuKosong(),
+                  ),
+
                 // Slider kartu cuaca: geser untuk berganti kota
+                if (_kota.isNotEmpty)
                 SizedBox(
                   height: 270,
                   child: PageView.builder(
                     controller: _controller,
                     itemCount: _kota.length,
                     onPageChanged: (i) {
+                      // Ingat kartu ini (kecuali yang sementara) untuk saat kembali ke Beranda
+                      _kartuTerakhir = _kota[i].sementara ? null : _kota[i].kunci;
                       setState(() => _halaman = i);
                       _muat(i);
                       _muat(i + 1);
@@ -454,6 +493,46 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Kartu saat belum ada kota: sedang mencari lokasi, atau ajakan memilih kota
+  Widget _kartuKosong() {
+    return HeroCard(
+      child: SizedBox(
+        height: 190,
+        width: double.infinity,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (_mencariLokasi) ...[
+              const CircularProgressIndicator(color: Colors.white),
+              const SizedBox(height: 14),
+              const Text(
+                'Mencari lokasimu...',
+                style: TextStyle(color: Colors.white, fontSize: 14),
+              ),
+            ] else ...[
+              const Icon(Icons.location_off_rounded, color: Colors.white, size: 34),
+              const SizedBox(height: 8),
+              const Text(
+                'Belum ada kota',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Ketuk Lokasi Saya, atau tambah kota di tab Kota',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white.withAlpha(204), fontSize: 12.5),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   // Isi satu halaman slider: kartu cuaca, loading, atau pesan gagal
   Widget _kartuKota(int i) {
     final kota = _kota[i];
@@ -464,7 +543,7 @@ class _HomeScreenState extends State<HomeScreen> {
         cityName: kota.nama,
         data: data,
         unit: SettingsService.unit,
-        label: kota.sementara ? kota.koordinatTeks : (kota.utama ? 'Kota utama' : null),
+        label: kota.sementara ? (kota.keterangan ?? kota.koordinatTeks) : null,
         onTap: () => _bukaDetail(kota),
       );
     }

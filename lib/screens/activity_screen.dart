@@ -4,7 +4,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../api/api_service.dart';
 import '../models/activity.dart';
 import '../models/favorite_city.dart';
-import '../services/settings_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/activity_card.dart';
 
@@ -78,21 +77,13 @@ class _ActivityScreenState extends State<ActivityScreen> {
     return '$jam.$menit';
   }
 
-  // Kota Beranda lebih dulu, lalu Tempat Saya (favorit) yang namanya berbeda
+  // Kota favorit (Tempat Saya), nama yang sama hanya sekali. Tidak ada kota bawaan.
   List<_PilihanKota> _daftarKota() {
-    final utama = SettingsService.mainCity;
-    final daftar = <_PilihanKota>[
-      _PilihanKota(
-        label: '$utama (kota Beranda)',
-        nama: utama,
-        lat: SettingsService.mainLat,
-        lon: SettingsService.mainLon,
-      ),
-    ];
-
+    final daftar = <_PilihanKota>[];
+    final sudahAda = <String>{};
     final favorit = Hive.box<FavoriteCity>('favorites');
     for (final kota in favorit.values) {
-      if (kota.name.toLowerCase() == utama.toLowerCase()) continue;
+      if (!sudahAda.add(kota.name.toLowerCase())) continue;
       daftar.add(_PilihanKota(label: kota.name, nama: kota.name, lat: kota.lat, lon: kota.lon));
     }
     return daftar;
@@ -115,6 +106,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     }
 
     final daftar = _daftarKota();
+    if (daftar.isEmpty) return;
     final kota = daftar[_indeksKota < daftar.length ? _indeksKota : 0];
 
     setState(() {
@@ -225,7 +217,16 @@ class _ActivityScreenState extends State<ActivityScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Kota: kota Beranda dan Tempat Saya
+                  // Kota: kota Beranda dan Tempat Saya. Bila belum ada satu pun, beri petunjuk.
+                  if (daftarKota.isEmpty)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Belum ada kota. Tambah kota favorit di tab Kota dulu.',
+                        style: TextStyle(color: c.textMuted, fontSize: 13.5),
+                      ),
+                    )
+                  else
                   DropdownButtonFormField<int>(
                     initialValue: indeksKota,
                     isExpanded: true,
@@ -245,7 +246,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
                   ),
                   const SizedBox(height: 18),
                   ElevatedButton(
-                    onPressed: _isLoading ? null : _analisis,
+                    onPressed: (_isLoading || daftarKota.isEmpty) ? null : _analisis,
                     child: const Text('Analisis'),
                   ),
                 ],

@@ -22,14 +22,19 @@ class SettingsService {
   // Getter status tema gelap, default false (tema terang)
   static bool get darkMode => _prefs?.getBool('darkMode') ?? false;
 
-  // Getter nama kota utama Beranda, default 'Yogyakarta'
-  static String get mainCity => _prefs?.getString('mainCity') ?? 'Yogyakarta';
+  // Apakah kota utama sudah ditentukan (dari lokasi GPS saat pertama dibuka).
+  // Tidak ada kota bawaan: sebelum diatur, Beranda tidak menampilkan kota utama.
+  static bool get hasMainCity => (_prefs?.getString('mainCity') ?? '').isNotEmpty;
 
-  // Getter latitude kota utama, default -7.79
-  static double get mainLat => _prefs?.getDouble('mainLat') ?? -7.79;
+  // Getter nama kota utama Beranda; kosong bila belum diatur (cek hasMainCity)
+  static String get mainCity => _prefs?.getString('mainCity') ?? '';
 
-  // Getter longitude kota utama, default 110.36
-  static double get mainLon => _prefs?.getDouble('mainLon') ?? 110.36;
+  // Getter latitude kota utama. Nilai cadangan (Jakarta) hanya dipakai bila kota utama
+  // belum diatur, misalnya pada form pengingat; tidak pernah ditampilkan sebagai kota utama.
+  static double get mainLat => _prefs?.getDouble('mainLat') ?? -6.2088;
+
+  // Getter longitude kota utama (cadangan Jakarta bila belum diatur)
+  static double get mainLon => _prefs?.getDouble('mainLon') ?? 106.8456;
 
   // Getter nama lengkap pengguna, default 'Administrator Payungin'
   static String get fullName => _prefs?.getString('fullName') ?? 'Administrator Payungin';
