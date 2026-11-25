@@ -26,7 +26,11 @@ class _PilihanKota {
 // Aktivitas (F7, tab 2): memilih kegiatan, hari, jam, dan kota, lalu aplikasi
 // menilai kelayakannya dari prakiraan cuaca. Tidak menyimpan apa pun.
 class ActivityScreen extends StatefulWidget {
-  const ActivityScreen({super.key});
+  // Dipanggil setelah pengingat dari hasil analisis berhasil disimpan;
+  // Root memakainya untuk berpindah ke tab Pengingat
+  final VoidCallback? onReminderSaved;
+
+  const ActivityScreen({super.key, this.onReminderSaved});
 
   @override
   State<ActivityScreen> createState() => _ActivityScreenState();
@@ -174,9 +178,18 @@ class _ActivityScreenState extends State<ActivityScreen> {
     );
 
     if (tersimpan == true && mounted) {
+      final pindahTab = widget.onReminderSaved;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pengingat dibuat. Lihat di tab Pengingat.')),
+        SnackBar(
+          content: Text(
+            pindahTab != null
+                ? 'Pengingat berhasil dibuat.'
+                : 'Pengingat dibuat. Lihat di tab Pengingat.',
+          ),
+        ),
       );
+      // Pindah ke tab Pengingat (bila Root menyediakan callback)
+      pindahTab?.call();
     }
   }
 

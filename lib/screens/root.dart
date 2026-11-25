@@ -22,6 +22,9 @@ class _RootScreenState extends State<RootScreen> {
   // Indeks tab yang sedang aktif
   int _selectedIndex = 0;
 
+  // Posisi tab Pengingat (Beranda 0, Kota 1, Aktivitas 2, Pengingat 3, Profil 4)
+  static const int _tabPengingat = 3;
+
   @override
   Widget build(BuildContext context) {
     final c = context.pc;
@@ -31,7 +34,10 @@ class _RootScreenState extends State<RootScreen> {
       // Beranda cuaca (F2); nama dikirim agar sapaan ikut berubah saat diedit di Profil
       HomeScreen(namaLengkap: SettingsService.fullName),
       const FavoritesScreen(),
-      const ActivityScreen(),
+      // Setelah pengingat dari hasil Aktivitas disimpan, pindah ke tab Pengingat
+      ActivityScreen(
+        onReminderSaved: () => setState(() => _selectedIndex = _tabPengingat),
+      ),
       const RemindersScreen(),
       ProfileScreen(
         onNameChanged: () {
