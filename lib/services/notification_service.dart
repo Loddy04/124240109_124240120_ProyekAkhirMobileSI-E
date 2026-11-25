@@ -86,6 +86,15 @@ class NotificationService {
     return granted ?? false;
   }
 
+  // Isi pesan notifikasi: catatan pengingat (atau teks bawaan bila catatan kosong),
+  // diawali nama kota bila pengingat punya kota. Contoh: "Sleman: Bawa payung".
+  static String isiNotifikasi(String catatan, String namaKota) {
+    final dasar = catatan.isNotEmpty
+        ? catatan
+        : 'Waktunya bersiap dan cek perlengkapan sebelum beraktivitas!';
+    return namaKota.isNotEmpty ? '$namaKota: $dasar' : dasar;
+  }
+
   // ---- Cek izin notifikasi yang sebenarnya ke sistem (tanpa meminta) ----
   // Platform selain Android dianggap sudah aktif agar tidak memunculkan pop-up.
   Future<bool> isEnabled() async {
@@ -173,9 +182,7 @@ class NotificationService {
 
     // Konten notifikasi
     final title = r.title.isNotEmpty ? r.title : 'Pengingat Payungin';
-    final body = r.note.isNotEmpty
-        ? r.note
-        : 'Waktunya bersiap dan cek perlengkapan sebelum beraktivitas!';
+    final body = isiNotifikasi(r.note, r.cityName);
 
     final androidDetails = AndroidNotificationDetails(
       _channelId,

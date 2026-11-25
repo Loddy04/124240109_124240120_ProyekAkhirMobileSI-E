@@ -262,6 +262,28 @@ class _RemindersScreenState extends State<RemindersScreen> {
                         ),
                       ],
                     ),
+                    // Kota pengingat (hanya bila sudah dipilih di form)
+                    if (reminder.cityName.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.location_on_outlined, size: 13, color: c.accent),
+                          const SizedBox(width: 5),
+                          Flexible(
+                            child: Text(
+                              reminder.cityName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: c.textMuted,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

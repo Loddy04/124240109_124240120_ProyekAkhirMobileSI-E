@@ -207,6 +207,8 @@ class KartuPengingatBerikutnya extends StatelessWidget {
     final r = berikutnya.pengingat;
     final w = berikutnya.waktu;
     final jam = '${w.hour.toString().padLeft(2, '0')}.${w.minute.toString().padLeft(2, '0')}';
+    // Kota ditambahkan di belakang bila pengingat punya kota. Contoh: "Besok · 07.00 · Sleman"
+    final kota = r.cityName.isNotEmpty ? ' · ${r.cityName}' : '';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppTheme.edge),
@@ -231,7 +233,7 @@ class KartuPengingatBerikutnya extends StatelessWidget {
                     style: TextStyle(color: c.text, fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                   Text(
-                    '${PengingatBerikutnya.labelHari(w, sekarang)} · $jam',
+                    '${PengingatBerikutnya.labelHari(w, sekarang)} · $jam$kota',
                     style: TextStyle(color: c.textMuted, fontSize: 12.5),
                   ),
                 ],

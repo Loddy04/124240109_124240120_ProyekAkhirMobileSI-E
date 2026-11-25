@@ -19,6 +19,13 @@ class SettingsService {
   // Getter satuan suhu ('C' atau 'F'), default 'C'
   static String get unit => _prefs?.getString('tempUnit') ?? 'C';
 
+  // Suhu Celsius -> teks sesuai satuan pilihan di Profil, dibulatkan.
+  // Contoh: 30 derajat C menjadi "30°" bila satuan C, dan "86°" bila satuan F.
+  static String formatSuhu(double celsius) {
+    final nilai = unit == 'F' ? celsius * 9 / 5 + 32 : celsius;
+    return '${nilai.round()}°';
+  }
+
   // Getter status tema gelap, default false (tema terang)
   static bool get darkMode => _prefs?.getBool('darkMode') ?? false;
 

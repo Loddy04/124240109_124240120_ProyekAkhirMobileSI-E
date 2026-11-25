@@ -216,15 +216,17 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                       width: 1.2,
                     ),
                   ),
-                  child: Column(
+                  // Kiri: nama kota dan kondisi cuaca. Kanan: suhu besar yang sejajar tengah
+                  // secara vertikal. Suhu mengikuti satuan pilihan di Profil (C atau F).
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Baris Atas: Nama Kota, Provinsi & Suhu Besar
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Sisi Kiri Atas: nama kota
-                          Expanded(
-                            child: Text(
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
                               city.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -235,87 +237,72 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                 letterSpacing: -0.3,
                               ),
                             ),
-                          ),
-
-                          const SizedBox(width: 8),
-
-                          // Sisi Kanan Atas: Suhu Besar
-                          if (isLoading)
-                            const SizedBox(
-                              height: 36,
-                              width: 36,
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                            )
-                          else if (weather != null)
-                            Text(
-                              '${weather.tempC.round()}°',
-                              style: const TextStyle(
-                                fontSize: 42,
-                                fontWeight: FontWeight.w200,
-                                color: Colors.white,
-                                height: 0.95,
-                                letterSpacing: -1,
-                              ),
-                            )
-                          else
-                            const Text(
-                              '--',
-                              style: TextStyle(
-                                fontSize: 36,
-                                fontWeight: FontWeight.w200,
-                                color: Colors.white70,
-                              ),
-                            ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 14),
-
-                      // Baris Bawah: Kondisi Cuaca & Parameter Meteorologi Riil
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          // Kiri Bawah: Ikon & Kondisi Cuaca (Flexible agar tidak overflow)
-                          Expanded(
-                            child: weather != null
-                                ? Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(weather.icon, size: 18, color: Colors.white),
-                                      const SizedBox(width: 6),
-                                      Flexible(
-                                        child: Text(
-                                          weather.condition,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.white,
-                                          ),
-                                        ),
+                            const SizedBox(height: 8),
+                            if (weather != null)
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(weather.icon, size: 18, color: Colors.white),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      weather.condition,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
                                       ),
-                                    ],
-                                  )
-                                : Text(
-                                    'Memuat prakiraan cuaca...',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.white.withValues(alpha: 0.7),
                                     ),
                                   ),
-                          ),
-
-                        ],
+                                ],
+                              )
+                            else
+                              Text(
+                                'Memuat prakiraan cuaca...',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white.withValues(alpha: 0.7),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
+                      const SizedBox(width: 8),
+                      if (isLoading)
+                        const SizedBox(
+                          height: 36,
+                          width: 36,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        )
+                      else if (weather != null)
+                        Text(
+                          SettingsService.formatSuhu(weather.tempC),
+                          style: const TextStyle(
+                            fontSize: 42,
+                            fontWeight: FontWeight.w200,
+                            color: Colors.white,
+                            height: 0.95,
+                            letterSpacing: -1,
+                          ),
+                        )
+                      else
+                        const Text(
+                          '--',
+                          style: TextStyle(
+                            fontSize: 36,
+                            fontWeight: FontWeight.w200,
+                            color: Colors.white70,
+                          ),
+                        ),
                     ],
                   ),
                 ),

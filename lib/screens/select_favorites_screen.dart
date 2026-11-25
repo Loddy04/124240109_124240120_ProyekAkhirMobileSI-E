@@ -206,7 +206,7 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
                     )
                   else if (weather != null)
                     Text(
-                      '${weather.tempC.round()}°',
+                      SettingsService.formatSuhu(weather.tempC),
                       style: TextStyle(
                         fontSize: 34,
                         fontWeight: FontWeight.w700,
@@ -641,7 +641,7 @@ class _SelectFavoritesScreenState extends State<SelectFavoritesScreen> {
                                       crossAxisAlignment: CrossAxisAlignment.end,
                                       children: [
                                         Text(
-                                          '${weather.tempC.round()}°',
+                                          SettingsService.formatSuhu(weather.tempC),
                                           style: TextStyle(
                                             fontSize: 17,
                                             fontWeight: FontWeight.bold,
